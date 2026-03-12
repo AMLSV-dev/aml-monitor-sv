@@ -670,14 +670,34 @@ export default function App() {
     // Check for demo mode in localStorage
     const demoData = localStorage.getItem('aml_demo_session');
     if (demoData) {
-      const { expiry } = JSON.parse(demoData);
+      const { expiry, localCredits } = JSON.parse(demoData);
       if (new Date(expiry) > new Date()) {
         setIsDemo(true);
         setDemoExpiry(expiry);
-        // Sync credits with backend
+        
+        // Use local credits as a baseline in case server reset
+        if (localCredits !== undefined) {
+          setDemoResultsLeft(localCredits);
+        }
+
+        // Sync credits with backend and pick the MINIMUM
         fetch(`/api/demo/credits?deviceId=${dId}`)
           .then(r => r.json())
-          .then(data => setDemoResultsLeft(data.creditsLeft))
+          .then(data => {
+            setDemoResultsLeft(prev => {
+              const serverVal = data.creditsLeft;
+              // If server was reset (15) but local is lower, keep local
+              // Otherwise use server value
+              const finalVal = Math.min(prev, serverVal);
+              
+              // Update local storage with the final value
+              const updatedDemo = JSON.parse(localStorage.getItem('aml_demo_session') || '{}');
+              updatedDemo.localCredits = finalVal;
+              localStorage.setItem('aml_demo_session', JSON.stringify(updatedDemo));
+              
+              return finalVal;
+            });
+          })
           .catch(e => console.error("Error syncing credits:", e));
       } else {
         localStorage.removeItem('aml_demo_session');
@@ -689,11 +709,13 @@ export default function App() {
     const expiry = new Date();
     expiry.setDate(expiry.getDate() + 2); // 2 days
     const demoSession = {
-      expiry: expiry.toISOString()
+      expiry: expiry.toISOString(),
+      localCredits: 15
     };
     localStorage.setItem('aml_demo_session', JSON.stringify(demoSession));
     setIsDemo(true);
     setDemoExpiry(demoSession.expiry);
+    setDemoResultsLeft(15);
     
     // Registrar en el backend para seguimiento de administración
     try {
@@ -702,11 +724,6 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientName: "Usuario Demo", deviceId })
       });
-      
-      // Get initial credits
-      const res = await fetch(`/api/demo/credits?deviceId=${deviceId}`);
-      const data = await res.json();
-      setDemoResultsLeft(data.creditsLeft);
     } catch (e) {
       console.error("Error tracking demo activation:", e);
     }
@@ -723,7 +740,15 @@ export default function App() {
         body: JSON.stringify({ deviceId })
       });
       const data = await res.json();
-      setDemoResultsLeft(data.creditsLeft);
+      
+      setDemoResultsLeft(prev => {
+        const newVal = data.creditsLeft;
+        // Update local storage too
+        const demoData = JSON.parse(localStorage.getItem('aml_demo_session') || '{}');
+        demoData.localCredits = newVal;
+        localStorage.setItem('aml_demo_session', JSON.stringify(demoData));
+        return newVal;
+      });
     } catch (e) {
       console.error("Error updating demo usage:", e);
     }
