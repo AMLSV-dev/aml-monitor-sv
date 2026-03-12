@@ -1,5 +1,5 @@
 {
-  "name": "monitoreo de medios PLD",
-  "description": "",
+  "name": "Cumplimiento SV",
+  "description": "Herramienta avanzada de monitoreo de medios y cumplimiento AML.",
   "requestFramePermissions": []
 }
