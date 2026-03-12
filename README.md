@@ -1,11 +1,24 @@
-<div align="center">
+# Cumplimiento SV - AML Monitoring SV
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+Herramienta avanzada de monitoreo de medios y cumplimiento para la prevención de Lavado de Dinero (AML) en El Salvador.
 
-  <h1>Built with AI Studio</h2>
+## Características
+- **Extracción Automática**: Monitoreo de la Sala de Prensa de la FGR SV.
+- **Búsqueda en Medios Digitales**: Integración con Google Search para hallazgos en prensa nacional.
+- **Análisis con IA**: Clasificación de noticias, identificación de sujetos, delitos, ubicación y nivel de riesgo mediante Gemini AI.
+- **Gestión de Hallazgos**: Bandeja intermedia para revisión y base de datos de hallazgos confirmados.
+- **Exportación**: Generación de reportes en Excel y PDF.
+- **Interfaz Adaptativa**: Modos Claro y Nocturno para reducir la fatiga visual.
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+## Configuración
+1. Clona el repositorio.
+2. Instala las dependencias: `npm install`.
+3. Crea un archivo `.env` basado en `.env.example` y añade tu `GEMINI_API_KEY`.
+4. Inicia el servidor: `npm run dev`.
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+## Contacto
+Para licencias de uso ilimitado o soporte personalizado:
+**Email**: [monitoreo.aml.elsalvador@gmail.com](mailto:monitoreo.aml.elsalvador@gmail.com)
 
-</div>
+---
+© 2026 Cumplimiento SV
