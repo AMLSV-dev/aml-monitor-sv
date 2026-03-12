@@ -47,6 +47,12 @@ if (db) {
       client_name TEXT,
       activated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS demo_limits (
+      device_id TEXT PRIMARY KEY,
+      credits_left INTEGER DEFAULT 15,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   // Migraciones básicas
@@ -142,10 +148,44 @@ app.post("/api/raw-news/reset", (req, res) => {
 });
 
 app.post("/api/demo/activate", (req, res) => {
-  const { clientName } = req.body;
+  const { clientName, deviceId } = req.body;
   try {
     db.prepare("INSERT INTO demo_usage (client_name) VALUES (?)").run(clientName || 'Anónimo');
+    
+    if (deviceId) {
+      const existing = db.prepare("SELECT * FROM demo_limits WHERE device_id = ?").get(deviceId);
+      if (!existing) {
+        db.prepare("INSERT INTO demo_limits (device_id, credits_left) VALUES (?, 15)").run(deviceId);
+      }
+    }
+    
     res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/demo/credits", (req, res) => {
+  const { deviceId } = req.query;
+  try {
+    const row = db.prepare("SELECT credits_left FROM demo_limits WHERE device_id = ?").get(deviceId);
+    res.json({ creditsLeft: row ? row.credits_left : 15 });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/demo/use-credit", (req, res) => {
+  const { deviceId } = req.body;
+  try {
+    const row = db.prepare("SELECT credits_left FROM demo_limits WHERE device_id = ?").get(deviceId);
+    const current = row ? row.credits_left : 15;
+    const next = Math.max(0, current - 1);
+    
+    db.prepare("INSERT OR REPLACE INTO demo_limits (device_id, credits_left, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)")
+      .run(deviceId, next);
+      
+    res.json({ success: true, creditsLeft: next });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

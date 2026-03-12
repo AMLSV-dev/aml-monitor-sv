@@ -70,6 +70,7 @@ export default function App() {
   const [isDemo, setIsDemo] = useState(false);
   const [demoResultsLeft, setDemoResultsLeft] = useState(15);
   const [demoExpiry, setDemoExpiry] = useState<string | null>(null);
+  const [deviceId, setDeviceId] = useState<string>("");
   const [isManualOpen, setIsManualOpen] = useState(false);
   const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
   const [errorLog, setErrorLog] = useState<string[]>([]);
@@ -658,14 +659,26 @@ export default function App() {
     fetchRawNews();
     checkApiKey();
     
+    // Initialize or retrieve Device ID
+    let dId = localStorage.getItem('aml_device_id');
+    if (!dId) {
+      dId = 'dev_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      localStorage.setItem('aml_device_id', dId);
+    }
+    setDeviceId(dId);
+
     // Check for demo mode in localStorage
     const demoData = localStorage.getItem('aml_demo_session');
     if (demoData) {
-      const { expiry, resultsLeft } = JSON.parse(demoData);
+      const { expiry } = JSON.parse(demoData);
       if (new Date(expiry) > new Date()) {
         setIsDemo(true);
         setDemoExpiry(expiry);
-        setDemoResultsLeft(resultsLeft);
+        // Sync credits with backend
+        fetch(`/api/demo/credits?deviceId=${dId}`)
+          .then(r => r.json())
+          .then(data => setDemoResultsLeft(data.creditsLeft))
+          .catch(e => console.error("Error syncing credits:", e));
       } else {
         localStorage.removeItem('aml_demo_session');
       }
@@ -676,35 +689,44 @@ export default function App() {
     const expiry = new Date();
     expiry.setDate(expiry.getDate() + 2); // 2 days
     const demoSession = {
-      expiry: expiry.toISOString(),
-      resultsLeft: 15
+      expiry: expiry.toISOString()
     };
     localStorage.setItem('aml_demo_session', JSON.stringify(demoSession));
     setIsDemo(true);
     setDemoExpiry(demoSession.expiry);
-    setDemoResultsLeft(15);
     
     // Registrar en el backend para seguimiento de administración
     try {
       await fetch("/api/demo/activate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientName: "Usuario Demo" })
+        body: JSON.stringify({ clientName: "Usuario Demo", deviceId })
       });
+      
+      // Get initial credits
+      const res = await fetch(`/api/demo/credits?deviceId=${deviceId}`);
+      const data = await res.json();
+      setDemoResultsLeft(data.creditsLeft);
     } catch (e) {
       console.error("Error tracking demo activation:", e);
     }
 
-    showToast("Modo Demo activado por 48 horas (Límite: 15 análisis)", "success");
+    showToast("Modo Demo activado por 48 horas", "success");
   };
 
-  const updateDemoUsage = (count: number) => {
+  const updateDemoUsage = async (count: number) => {
     if (!isDemo) return;
-    const newCount = Math.max(0, demoResultsLeft - count);
-    setDemoResultsLeft(newCount);
-    const demoData = JSON.parse(localStorage.getItem('aml_demo_session') || '{}');
-    demoData.resultsLeft = newCount;
-    localStorage.setItem('aml_demo_session', JSON.stringify(demoData));
+    try {
+      const res = await fetch("/api/demo/use-credit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deviceId })
+      });
+      const data = await res.json();
+      setDemoResultsLeft(data.creditsLeft);
+    } catch (e) {
+      console.error("Error updating demo usage:", e);
+    }
   };
 
   const checkApiKey = async () => {
@@ -1163,18 +1185,20 @@ export default function App() {
               <Shield className="text-emerald-500 w-8 h-8" />
             </div>
           </div>
-          <div className={`${s.card} p-8 rounded-[2rem] border shadow-sm flex flex-col justify-center group hover:border-blue-200 transition-all`}>
-            <p className={`text-[10px] font-bold ${s.muted} uppercase tracking-[0.2em] mb-4`}>Proyección Uso Demo</p>
-            <div className="flex items-end gap-2">
-              <div className={`flex-1 h-2 ${s.subtle} rounded-full overflow-hidden`}>
-                <div 
-                  className="h-full bg-blue-500 transition-all duration-1000" 
-                  style={{ width: `${(demoResultsLeft / 15) * 100}%` }}
-                />
+          {isDemo && (
+            <div className={`${s.card} p-8 rounded-[2rem] border shadow-sm flex flex-col justify-center group hover:border-blue-200 transition-all`}>
+              <p className={`text-[10px] font-bold ${s.muted} uppercase tracking-[0.2em] mb-4`}>Proyección Uso Demo</p>
+              <div className="flex items-end gap-2">
+                <div className={`flex-1 h-2 ${s.subtle} rounded-full overflow-hidden`}>
+                  <div 
+                    className="h-full bg-blue-500 transition-all duration-1000" 
+                    style={{ width: `${(demoResultsLeft / 15) * 100}%` }}
+                  />
+                </div>
+                <span className={`text-[10px] font-bold ${s.text}`}>{demoResultsLeft}/15</span>
               </div>
-              <span className={`text-[10px] font-bold ${s.text}`}>{demoResultsLeft}/15</span>
             </div>
-          </div>
+          )}
 
           <div className={`${s.accent} p-8 rounded-[2rem] border shadow-xl flex flex-col justify-center group hover:scale-[1.02] transition-all cursor-pointer`} onClick={() => window.location.href = 'mailto:monitoreo.aml.elsalvador@gmail.com'}>
             <div className="flex items-center justify-between mb-4">
