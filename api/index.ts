@@ -15,6 +15,11 @@ try {
   // In serverless, we might not want to exit, but the function will fail anyway
 }
 
+function removeAccents(str: string): string {
+  if (!str) return "";
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
 if (db) {
   // Inicializar DB
   db.exec(`
@@ -93,7 +98,12 @@ app.post("/api/raw-news/save", (req, res) => {
       INSERT OR IGNORE INTO raw_news (date, title, url, source)
       VALUES (?, ?, ?, ?)
     `);
-    const result = insert.run(date, title, url, source || 'Digital');
+    const result = insert.run(
+      date, 
+      removeAccents(title), 
+      url, 
+      removeAccents(source || 'Digital')
+    );
     res.json({ success: true, ignored: result.changes === 0 });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -122,7 +132,16 @@ app.post("/api/news/save", (req, res) => {
       INSERT OR IGNORE INTO news (date, subject, risk, crime, department, source, url, content)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    insert.run(date, subject, risk, crime, department, source || 'FGR', url, content);
+    insert.run(
+      date, 
+      removeAccents(subject), 
+      risk, 
+      removeAccents(crime), 
+      removeAccents(department), 
+      removeAccents(source || 'FGR'), 
+      url, 
+      removeAccents(content)
+    );
     res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -274,7 +293,8 @@ app.post("/api/scrape/list", async (req, res) => {
 
       for (const res of batchResults) {
         for (const item of res.items) {
-          db.prepare(`INSERT OR IGNORE INTO raw_news (date, title, url) VALUES (?, ?, ?)`).run(item.date, item.title, item.url);
+          db.prepare(`INSERT OR IGNORE INTO raw_news (date, title, url) VALUES (?, ?, ?)`)
+            .run(item.date, removeAccents(item.title), item.url);
           newsList.push(item);
         }
         if (res.olderFound && !pageTo) stopScraping = true;
