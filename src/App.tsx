@@ -339,31 +339,40 @@ export default function App() {
         TEXTO: ${cleanText}
         
         MISIÓN:
-        Extraer a las personas mencionadas en la noticia como acusadas, capturadas, detenidas, procesadas, investigadas o condenadas.
+        Extraer a TODAS las personas mencionadas en la noticia como acusadas, capturadas, detenidas, procesadas, investigadas o condenadas.
         Si la noticia NO contiene un hecho delictivo, captura o proceso judicial, devuelve un JSON con "isRelevant": false.
         
         REGLAS CRÍTICAS:
-        1. IDENTIFICACIÓN: Captura nombres y apellidos. Si solo aparece un alias o nombre parcial, extráelo también.
-        2. DEPARTAMENTOS: El departamento DEBE ser uno de los 14 de El Salvador.
-        3. NO FILTRAR POR DELITO: Extrae a la persona sin importar si el delito es grave o leve.
-        4. RIESGO: 
+        1. EXTRACCIÓN TOTAL: No omitas a ninguna persona. Si la noticia menciona una lista de 10 personas, extrae las 10.
+        2. IDENTIFICACIÓN: Captura nombres y apellidos. Si solo aparece un alias o nombre parcial, extráelo también.
+        3. DEPARTAMENTOS: El departamento DEBE ser uno de los 14 de El Salvador.
+        4. NO FILTRAR POR DELITO: Extrae a la persona sin importar si el delito es grave o leve.
+        5. RIESGO: 
            - ALTO: Pandillas, Narcotráfico, Lavado, Corrupción, Homicidio, Extorsión, Estafas Masivas (> $10k).
            - MEDIO: Cualquier otro delito (Estafa, Hurto, etc.).`,
         config: {
           tools: useUrlContext ? [{ urlContext: {} }, { googleSearch: {} }] : undefined,
-          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
             properties: {
               isRelevant: { type: Type.BOOLEAN },
-              date: { type: Type.STRING },
-              subject: { type: Type.STRING, description: "Nombre y apellido de la persona. NO usar descripciones genéricas." },
-              risk: { type: Type.STRING, enum: ["ALTO", "MEDIO", "BAJO"] },
-              crime: { type: Type.STRING },
-              department: { type: Type.STRING, description: "Uno de los 14 departamentos de El Salvador en MAYÚSCULAS." },
-              source: { type: Type.STRING },
-              content: { type: Type.STRING, description: "Título breve de la noticia" }
+              findings: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    date: { type: Type.STRING },
+                    subject: { type: Type.STRING, description: "Nombre y apellido de la persona o ALIAS. NO usar descripciones genéricas." },
+                    risk: { type: Type.STRING, enum: ["ALTO", "MEDIO", "BAJO"] },
+                    crime: { type: Type.STRING },
+                    department: { type: Type.STRING, description: "Uno de los 14 departamentos de El Salvador en MAYÚSCULAS." },
+                    source: { type: Type.STRING },
+                    content: { type: Type.STRING, description: "Título breve de la noticia" }
+                  },
+                  required: ["subject", "crime", "department", "risk"]
+                }
+              }
             },
             required: ["isRelevant"]
           }
@@ -371,22 +380,34 @@ export default function App() {
       });
 
       const result = JSON.parse(response.text || "{}");
-      if (result.isRelevant) {
-        await fetch("/api/news/save", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            date: result.date || new Date().toISOString().split('T')[0],
-            subject: result.subject,
-            risk: result.risk,
-            crime: result.crime,
-            department: result.department,
-            source: result.source || "Manual",
-            url: manualUrl,
-            content: result.content
-          })
-        });
-        showToast("Noticia analizada y guardada con éxito.");
+      if (result.isRelevant && result.findings && result.findings.length > 0) {
+        let savedCount = 0;
+        for (const finding of result.findings) {
+          // Evitar guardar sujetos genéricos
+          const genericTerms = ["sujeto", "desconocido", "identificado", "estafador", "acusado", "persona", "hombre", "mujer", "sujetos"];
+          const isGeneric = genericTerms.some(term => finding.subject.toLowerCase() === term || finding.subject.toLowerCase().includes(`${term} no`));
+          
+          if (isGeneric && finding.subject.length < 15) continue;
+
+          const normalizedSubject = finding.subject.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          
+          await fetch("/api/news/save", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              date: finding.date || result.date || new Date().toISOString().split('T')[0],
+              subject: normalizedSubject,
+              risk: finding.risk,
+              crime: finding.crime.toUpperCase(),
+              department: finding.department.toUpperCase(),
+              source: finding.source || result.source || "Manual",
+              url: manualUrl,
+              content: finding.content || result.content || "Análisis Manual"
+            })
+          });
+          savedCount++;
+        }
+        showToast(`Se extrajeron y guardaron ${savedCount} hallazgos con éxito.`);
         setManualUrl("");
         await fetchNews();
         setViewMode('analyzed');
@@ -506,7 +527,7 @@ export default function App() {
               Extraer a TODAS las personas mencionadas en la noticia que estén vinculadas a un hecho delictivo, captura, proceso judicial, investigación o condena.
               
               REGLAS DE ORO (SIN RESTRICCIONES):
-              1. EXTRACCIÓN TOTAL: No evalúes si la noticia es importante o no. Si hay nombres de personas acusadas o capturadas, DEBES extraerlos.
+              1. EXTRACCIÓN TOTAL: No omitas a ninguna persona. Si la noticia menciona una lista de 10 o 20 personas, DEBES extraerlas TODAS. No resumas ni agrupes.
               2. IDENTIFICACIÓN FLEXIBLE: Captura nombres y apellidos completos. Si solo hay un alias (ej: "El Sirra") o un nombre parcial, extráelo también como sujeto.
               3. SIN FILTRO DE DELITO: No importa el tipo de delito (desde una multa hasta homicidio). Si hay un proceso judicial o captura, extráelo.
               4. DEPARTAMENTOS: Clasifica en uno de los 14 departamentos de El Salvador. Si no se menciona, usa "SAN SALVADOR" por defecto para procesos nacionales.
@@ -534,7 +555,6 @@ export default function App() {
                   tools: useUrlContext ? [{ urlContext: {} }, { googleSearch: {} }] : undefined,
                   responseMimeType: "application/json",
                   temperature: 0.1,
-                  thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
                   responseSchema: {
                     type: Type.OBJECT,
                     properties: {
