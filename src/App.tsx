@@ -218,7 +218,7 @@ export default function App() {
     const toDate = dateTo || today;
 
     try {
-      // Crear instancia justo antes de la llamada para asegurar que usa la clave más reciente
+      // Usar gemini-3.1-flash-image-preview para mejor soporte de búsqueda
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || process.env.GEMINI_API_KEY || "" });
       
       const prompt = `Actúa como un experto en cumplimiento AML y analista de noticias de El Salvador. 
@@ -249,7 +249,7 @@ export default function App() {
 
       console.log("[Digital Search] Enviando solicitud a Gemini con Google Search...");
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.1-flash-image-preview",
         contents: prompt,
         config: {
           tools: [{ googleSearch: {} }],
@@ -334,8 +334,25 @@ export default function App() {
       setTimeout(() => setScrapeProgress(""), 4000);
     } catch (err: any) {
       console.error(err);
-      addErrorLog("Error en búsqueda digital: " + err.message);
-      setScrapeProgress("Error en la búsqueda digital.");
+      const errorMsg = err.message || "";
+      
+      // Si el error indica que la clave no es válida o no tiene permisos, forzamos el diálogo
+      if (errorMsg.includes("API key not valid") || errorMsg.includes("Requested entity was not found") || errorMsg.includes("400")) {
+        setModal({
+          open: true,
+          title: "Error de Clave de API",
+          message: "La clave de API actual no es válida para realizar búsquedas web. Esto sucede si la clave no pertenece a un proyecto con facturación habilitada. ¿Deseas seleccionar una clave diferente?",
+          onConfirm: async () => {
+            setModal(null);
+            await window.aistudio?.openSelectKey();
+            // No reintentamos automáticamente para evitar bucles, el usuario debe hacer clic de nuevo
+          }
+        });
+        setScrapeProgress("Error de clave de API.");
+      } else {
+        addErrorLog("Error en búsqueda digital: " + errorMsg);
+        setScrapeProgress("Error en la búsqueda digital.");
+      }
     } finally {
       setScraping(false);
     }
