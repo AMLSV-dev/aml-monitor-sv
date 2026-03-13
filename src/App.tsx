@@ -93,6 +93,26 @@ export default function App() {
     setTimeout(() => setToast(null), 5000);
   };
 
+  const formatDate = (dateStr: string | undefined) => {
+    if (!dateStr) return "-";
+    try {
+      // Handle YYYY-MM-DD
+      if (dateStr.includes("-") && dateStr.length === 10) {
+        const [y, m, d] = dateStr.split("-");
+        return `${d}/${m}/${y}`;
+      }
+      // Handle ISO or other formats
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
   const fetchNews = async () => {
     console.log("[App] fetchNews started");
     setLoading(true);
@@ -913,7 +933,7 @@ export default function App() {
       if (viewMode === 'analyzed') {
         const n = item as NewsItem;
         return {
-          Fecha: n.date,
+          Fecha: formatDate(n.date),
           Sujeto: n.subject,
           "": "",
           " ": "",
@@ -946,16 +966,16 @@ export default function App() {
     doc.text(`Reporte de Monitoreo AML - ${viewMode === 'analyzed' ? 'Hallazgos' : 'Bandeja FGR'}`, 14, 22);
     doc.setFontSize(11);
     doc.setTextColor(100);
-    doc.text(`Generado el: ${new Date().toLocaleString()}`, 14, 30);
+    doc.text(`Generado el: ${formatDate(new Date().toISOString())}`, 14, 30);
     
     const source = viewMode === 'analyzed' ? filteredNews : filteredRawNews;
     const tableData = source.map(item => {
       if (viewMode === 'analyzed') {
         const n = item as NewsItem;
-        return [n.date, n.subject, "", "", n.source || "FGR", n.crime, n.url, n.content, n.department];
+        return [formatDate(n.date), n.subject, "", "", n.source || "FGR", n.crime, n.url, n.content, n.department];
       } else {
         const r = item as RawNewsItem;
-        return [r.date, r.title, r.analyzed ? "SI" : "NO", r.url];
+        return [formatDate(r.date), r.title, r.analyzed ? "SI" : "NO", r.url];
       }
     });
 
@@ -1269,7 +1289,7 @@ export default function App() {
                             {stat.mode}
                           </span>
                         </td>
-                        <td className="px-8 py-5 text-sm">{new Date(stat.activated_at).toLocaleString()}</td>
+                        <td className="px-8 py-5 text-sm">{formatDate(stat.activated_at)}</td>
                       </tr>
                     ))
                   )}
@@ -1312,7 +1332,7 @@ export default function App() {
             </div>
             <div className="flex items-center gap-2">
               <FileText className="w-3 h-3" />
-              <span>Expira: {demoExpiry ? new Date(demoExpiry).toLocaleDateString() : ''}</span>
+              <span>Expira: {formatDate(demoExpiry)}</span>
             </div>
           </motion.div>
         )}
@@ -1619,7 +1639,7 @@ export default function App() {
                         <input type="checkbox" className="w-5 h-5 rounded-lg border-slate-300 bg-white text-blue-600 focus:ring-blue-500" checked={selectedRawIds.includes(item.id)} onChange={() => toggleSelect(item.id)} />
                       </div>
                     )}
-                    <div className={`text-[10px] md:text-[12px] font-semibold ${s.muted}`}>{item.date}</div>
+                    <div className={`text-[10px] md:text-[12px] font-semibold ${s.muted}`}>{formatDate(item.date)}</div>
                     {viewMode === 'analyzed' ? (
                       <>
                         <div className={`font-bold ${s.text} text-[12px] md:text-[14px] uppercase`}>{(item as NewsItem).subject}</div>
