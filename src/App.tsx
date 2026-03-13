@@ -218,8 +218,13 @@ export default function App() {
     const toDate = dateTo || today;
 
     try {
+      console.log("[Digital Search] Iniciando búsqueda...");
       // Usar gemini-3.1-flash-image-preview para mejor soporte de búsqueda
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || process.env.GEMINI_API_KEY || "" });
+      // Priorizar process.env.API_KEY que es la inyectada por el selector de claves
+      const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY || "";
+      console.log("[Digital Search] Usando API Key (primeros 4 chars):", apiKey.substring(0, 4));
+      
+      const ai = new GoogleGenAI({ apiKey });
       
       const prompt = `Actúa como un experto en cumplimiento AML y analista de noticias de El Salvador. 
       Tu objetivo es encontrar noticias RECIENTES en los principales periódicos digitales salvadoreños entre el ${fromDate} y el ${toDate}.
@@ -333,19 +338,34 @@ export default function App() {
       
       setTimeout(() => setScrapeProgress(""), 4000);
     } catch (err: any) {
-      console.error(err);
-      const errorMsg = err.message || "";
+      console.error("[Digital Search] Error:", err);
+      const errorMsg = typeof err === 'string' ? err : (err.message || JSON.stringify(err));
       
       // Si el error indica que la clave no es válida o no tiene permisos, forzamos el diálogo
-      if (errorMsg.includes("API key not valid") || errorMsg.includes("Requested entity was not found") || errorMsg.includes("400")) {
+      if (errorMsg.includes("API key not valid") || errorMsg.includes("Requested entity was not found") || errorMsg.includes("400") || errorMsg.includes("API_KEY_INVALID")) {
         setModal({
           open: true,
           title: "Error de Clave de API",
           message: "La clave de API actual no es válida para realizar búsquedas web. Esto sucede si la clave no pertenece a un proyecto con facturación habilitada. ¿Deseas seleccionar una clave diferente?",
           onConfirm: async () => {
-            setModal(null);
-            await window.aistudio?.openSelectKey();
-            // No reintentamos automáticamente para evitar bucles, el usuario debe hacer clic de nuevo
+            console.log("[Digital Search] Botón confirmar presionado");
+            if (window.aistudio) {
+              try {
+                console.log("[Digital Search] Intentando abrir selector de claves...");
+                await window.aistudio.openSelectKey();
+                console.log("[Digital Search] Selector de claves abierto exitosamente");
+                setModal(null);
+              } catch (err) {
+                console.error("[Digital Search] Error al abrir selector:", err);
+                showToast("Error al abrir el selector de claves", "error");
+                setModal(null);
+              }
+            } else {
+              console.error("[Digital Search] window.aistudio no está disponible");
+              addErrorLog("Error: El selector de claves no está disponible en este entorno.");
+              showToast("Error: No se puede abrir el selector de claves.", "error");
+              setModal(null);
+            }
           }
         });
         setScrapeProgress("Error de clave de API.");
@@ -1482,6 +1502,20 @@ export default function App() {
           >
             <BookOpen className="w-3.5 h-3.5 md:w-4 h-4" />
             MANUAL
+          </button>
+
+          <button 
+            onClick={async () => {
+              if (window.aistudio) {
+                await window.aistudio.openSelectKey();
+              } else {
+                showToast("Selector de claves no disponible", "error");
+              }
+            }}
+            className={`flex items-center gap-2 md:gap-3 px-4 md:px-7 py-2.5 md:py-3.5 rounded-xl md:rounded-2xl border ${s.card} ${s.text} hover:bg-slate-50 hover:text-slate-900 text-[10px] md:text-[12px] font-bold uppercase tracking-widest transition-all shadow-sm`}
+          >
+            <Database className="w-3.5 h-3.5 md:w-4 h-4" />
+            API KEY
           </button>
 
           <button 
