@@ -191,6 +191,25 @@ export default function App() {
   };
 
   const startDigitalSearch = async () => {
+    // Verificar si se requiere una clave de API para herramientas avanzadas (Google Search)
+    if (window.aistudio) {
+      const hasKey = await window.aistudio.hasSelectedApiKey();
+      if (!hasKey) {
+        setModal({
+          open: true,
+          title: "Clave de API Requerida",
+          message: "La búsqueda en medios digitales utiliza Google Search, lo cual requiere una clave de API de un proyecto con facturación habilitada. ¿Deseas seleccionar una clave ahora?",
+          onConfirm: async () => {
+            setModal(null);
+            await window.aistudio?.openSelectKey();
+            // Después de abrir el diálogo, intentamos proceder
+            startDigitalSearch();
+          }
+        });
+        return;
+      }
+    }
+
     setScraping(true);
     setScrapeProgress("Buscando en medios digitales de El Salvador...");
     
@@ -199,7 +218,8 @@ export default function App() {
     const toDate = dateTo || today;
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      // Crear instancia justo antes de la llamada para asegurar que usa la clave más reciente
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || process.env.GEMINI_API_KEY || "" });
       
       const prompt = `Actúa como un experto en cumplimiento AML y analista de noticias de El Salvador. 
       Tu objetivo es encontrar noticias RECIENTES en los principales periódicos digitales salvadoreños entre el ${fromDate} y el ${toDate}.
@@ -222,13 +242,12 @@ export default function App() {
       REQUISITOS DE SALIDA:
       1. Devuelve una lista EXTENSA de noticias. No te detengas en 2 o 3.
       2. Solo devuelve noticias con URL directa y válida. 
-      3. IMPORTANTE: La URL debe ser la URL ORIGINAL del periódico, NO una URL de búsqueda de Google ni una URL inventada.
-      4. Si no estás seguro de la URL exacta de una noticia, NO la incluyas. Es mejor tener 10 noticias con links que funcionen que 20 con links rotos.
+      3. IMPORTANTE: La URL debe ser la URL ORIGINAL del periódico, NO una URL de búsqueda de Google ni una URL de búsqueda interna.
+      4. Si no estás seguro de la URL exacta de una noticia, NO la incluyas.
       5. El campo "source" DEBE ser el nombre del periódico.
-      6. Devuelve un JSON con una lista de noticias: title, url, date (YYYY-MM-DD), source.
-      
-      ADVERTENCIA: No inventes estructuras de URL como "/judicial/titulo-noticia" ni adivines categorías. Solo usa las URLs EXACTAS que aparezcan en los resultados de búsqueda de Google. Si el resultado de búsqueda muestra una URL, úsala tal cual.`;
+      6. Devuelve un JSON con una lista de noticias: title, url, date (YYYY-MM-DD), source.`;
 
+      console.log("[Digital Search] Enviando solicitud a Gemini con Google Search...");
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: prompt,
@@ -256,7 +275,11 @@ export default function App() {
         }
       });
 
-      const data = JSON.parse(response.text || '{"news": []}');
+      if (!response.text) {
+        throw new Error("El modelo no devolvió ninguna respuesta de texto.");
+      }
+
+      const data = JSON.parse(response.text);
       const foundNews = (data.news || []).filter((n: any) => {
         return n.url && 
                n.url.startsWith('http') && 
