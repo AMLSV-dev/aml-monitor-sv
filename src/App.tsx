@@ -69,6 +69,8 @@ export default function App() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isDemo, setIsDemo] = useState(false);
   const [appMode, setAppMode] = useState<'demo' | 'admin' | 'full' | null>(null);
+  const [accessCode, setAccessCode] = useState("");
+  const [isLocked, setIsLocked] = useState(true);
   const [adminKeyInput, setAdminKeyInput] = useState("");
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [adminStats, setAdminStats] = useState<any[]>([]);
@@ -691,6 +693,23 @@ export default function App() {
     }
     setDeviceId(dId);
 
+    // Check for access key in URL
+    const params = new URLSearchParams(window.location.search);
+    const urlKey = params.get('access');
+    if (urlKey) {
+      validateAccessCode(urlKey);
+    } else {
+      // Check for existing session
+      const session = localStorage.getItem('aml_access_session');
+      if (session) {
+        const { mode, code } = JSON.parse(session);
+        setAppMode(mode);
+        setAccessCode(code);
+        setIsLocked(false);
+        if (mode === 'admin') setIsAdminAuthenticated(true);
+      }
+    }
+
     // Check for demo mode in localStorage (but don't auto-activate appMode)
     const demoData = localStorage.getItem('aml_demo_session');
     if (demoData) {
@@ -718,6 +737,44 @@ export default function App() {
       }
     }
   }, []);
+
+  const validateAccessCode = async (codeToValidate?: string) => {
+    const code = codeToValidate || accessCode;
+    if (!code) return;
+
+    try {
+      const res = await fetch("/api/auth/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code })
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setAppMode(data.mode);
+        setIsLocked(false);
+        setAccessCode(code);
+        localStorage.setItem('aml_access_session', JSON.stringify({ mode: data.mode, code }));
+        
+        if (data.mode === 'admin') {
+          setIsAdminAuthenticated(true);
+          setAdminKeyInput(code); // Use the same code if it's the admin one
+        }
+        
+        if (data.mode === 'demo') {
+          activateDemo();
+        }
+
+        showToast(`Acceso concedido: Modo ${data.mode.toUpperCase()}`, "success");
+        // Clean URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } else {
+        showToast("Código de acceso inválido", "error");
+      }
+    } catch (e) {
+      showToast("Error de validación", "error");
+    }
+  };
 
   const activateDemo = async () => {
     const expiry = new Date();
@@ -1006,96 +1063,56 @@ export default function App() {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('aml_access_session');
+    setAppMode(null);
+    setIsLocked(true);
+    setAccessCode("");
+    setIsAdminAuthenticated(false);
+    showToast("Sesión cerrada", "success");
+  };
+
   const s = themeStyles[theme];
 
-  if (!appMode) {
+  if (isLocked) {
     return (
       <div className={`min-h-screen ${s.bg} flex items-center justify-center p-6 transition-colors duration-500`}>
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-8"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className={`max-w-md w-full p-10 rounded-[2.5rem] border ${s.card} shadow-2xl text-center space-y-8`}
         >
-          {/* Left Side: Branding */}
-          <div className="flex flex-col justify-center space-y-6">
-            <div className={`w-16 h-16 ${s.accent} rounded-3xl flex items-center justify-center shadow-2xl shadow-blue-900/20`}>
-              <Shield className="text-white w-10 h-10" />
-            </div>
-            <div>
-              <h1 className={`text-4xl font-serif font-bold ${s.text} mb-2`}>AML Monitoring SV</h1>
-              <p className={`text-lg ${s.muted}`}>Inteligencia Avanzada para el Cumplimiento Normativo en El Salvador.</p>
-            </div>
-            <div className="space-y-4">
-              {[
-                "Monitoreo de FGR en tiempo real",
-                "Análisis de medios digitales con IA",
-                "Detección de riesgos reputacionales",
-                "Exportación automatizada de hallazgos"
-              ].map((item, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  <span className={`text-sm ${s.muted}`}>{item}</span>
-                </div>
-              ))}
-            </div>
+          <div className={`w-20 h-20 ${s.accent} rounded-3xl flex items-center justify-center mx-auto shadow-2xl shadow-blue-900/20`}>
+            <Shield className="text-white w-10 h-10" />
+          </div>
+          
+          <div>
+            <h1 className={`text-3xl font-serif font-bold ${s.text} mb-2`}>Acceso Restringido</h1>
+            <p className={`${s.muted} text-sm`}>Ingresa tu código de acceso personalizado para desbloquear la plataforma.</p>
           </div>
 
-          {/* Right Side: Options */}
           <div className="space-y-4">
-            <button 
-              onClick={activateDemo}
-              className={`w-full p-8 rounded-3xl border-2 border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10 transition-all text-left group relative overflow-hidden`}
-            >
-              <div className="flex justify-between items-start mb-4">
-                <div className="p-3 bg-blue-500 rounded-2xl text-white shadow-lg shadow-blue-500/20">
-                  <RefreshCw className="w-6 h-6" />
-                </div>
-                <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest bg-blue-100 px-3 py-1 rounded-full">
-                  {isDemo ? "Sesión Activa" : "Gratis 48h"}
-                </span>
-              </div>
-              <h3 className={`text-xl font-bold ${s.text} mb-1`}>{isDemo ? "Continuar Demo" : "Demo Monitoreo"}</h3>
-              <p className={`text-sm ${s.muted}`}>Acceso inmediato con 15 créditos de análisis para pruebas rápidas.</p>
-            </button>
-
-            <div className={`w-full p-8 rounded-3xl border ${s.card} space-y-4 shadow-sm`}>
-              <div className="flex items-center gap-3 mb-2">
-                <div className={`p-3 ${s.accent} rounded-2xl text-white`}>
-                  <Terminal className="w-6 h-6" />
-                </div>
-                <h3 className={`text-xl font-bold ${s.text}`}>Acceso Administrador</h3>
-              </div>
+            <div className="relative">
               <input 
                 type="password"
-                placeholder="Clave de acceso"
-                value={adminKeyInput}
-                onChange={(e) => setAdminKeyInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()}
-                className={`w-full px-5 py-4 rounded-xl border ${s.input} focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm`}
+                placeholder="Código de Acceso"
+                value={accessCode}
+                onChange={(e) => setAccessCode(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && validateAccessCode()}
+                className={`w-full px-6 py-5 rounded-2xl border ${s.input} focus:ring-2 focus:ring-blue-500 outline-none transition-all text-center font-mono tracking-widest text-lg`}
               />
-              <button 
-                onClick={handleAdminLogin}
-                className={`w-full py-4 rounded-xl ${s.accent} text-white font-bold uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-blue-900/10 text-xs`}
-              >
-                Ingresar al Panel
-              </button>
             </div>
-
+            
             <button 
-              onClick={() => setAppMode('full')}
-              className={`w-full p-6 rounded-3xl border border-dashed ${s.card} flex items-center justify-between group hover:border-blue-500/50 transition-all`}
+              onClick={() => validateAccessCode()}
+              className={`w-full py-5 rounded-2xl ${s.accent} text-white font-bold uppercase tracking-[0.2em] hover:opacity-90 transition-all shadow-xl shadow-blue-900/10 text-xs`}
             >
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-slate-100 rounded-2xl text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-500 transition-all">
-                  <Shield className="w-5 h-5" />
-                </div>
-                <div className="text-left">
-                  <h4 className={`text-sm font-bold ${s.text}`}>Versión Corporativa</h4>
-                  <p className={`text-xs ${s.muted}`}>Uso ilimitado con API Key propia</p>
-                </div>
-              </div>
-              <ExternalLink className="w-4 h-4 text-slate-300 group-hover:text-blue-500 transition-all" />
+              Validar Credenciales
             </button>
+          </div>
+
+          <div className="pt-4">
+            <p className={`text-[10px] font-bold ${s.muted} uppercase tracking-widest opacity-50`}>Cumplimiento SV Intelligence</p>
           </div>
         </motion.div>
       </div>
@@ -1139,7 +1156,7 @@ export default function App() {
                 Reset DB
               </button>
               <button 
-                onClick={() => setAppMode(null)}
+                onClick={handleLogout}
                 className={`px-6 py-3 rounded-xl border ${s.card} font-bold text-xs uppercase tracking-widest hover:bg-slate-50 transition-all`}
               >
                 Cerrar Sesión
@@ -1307,11 +1324,11 @@ export default function App() {
           </button>
 
           <button 
-            onClick={() => setAppMode(null)}
+            onClick={handleLogout}
             className={`flex items-center gap-2 md:gap-3 px-4 md:px-7 py-2.5 md:py-3.5 rounded-xl md:rounded-2xl border ${s.card} ${s.text} hover:bg-slate-50 hover:text-slate-900 text-[10px] md:text-[12px] font-bold uppercase tracking-widest transition-all shadow-sm`}
           >
             <RefreshCw className="w-3.5 h-3.5 md:w-4 h-4" />
-            MENÚ
+            SALIR
           </button>
 
           <div className={`flex ${s.subtle} p-1 md:p-2 rounded-xl md:rounded-[1.5rem] border shadow-inner transition-colors duration-500`}>

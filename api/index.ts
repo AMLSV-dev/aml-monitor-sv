@@ -58,6 +58,17 @@ if (db) {
       credits_left INTEGER DEFAULT 15,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS access_keys (
+      key_value TEXT PRIMARY KEY,
+      mode TEXT, -- 'demo', 'admin', 'full'
+      description TEXT
+    );
+
+    -- Insert default keys if they don't exist
+    INSERT OR IGNORE INTO access_keys (key_value, mode, description) VALUES ('demo2026', 'demo', 'Acceso Demo Pública');
+    INSERT OR IGNORE INTO access_keys (key_value, mode, description) VALUES ('admin99', 'admin', 'Acceso Administración');
+    INSERT OR IGNORE INTO access_keys (key_value, mode, description) VALUES ('corp77', 'full', 'Acceso Corporativo');
   `);
 
   // Migraciones básicas
@@ -161,6 +172,20 @@ app.post("/api/raw-news/reset", (req, res) => {
   try {
     db.prepare("DELETE FROM raw_news").run();
     res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/auth/validate", (req, res) => {
+  const { code } = req.body;
+  try {
+    const row = db.prepare("SELECT mode FROM access_keys WHERE key_value = ?").get(code);
+    if (row) {
+      res.json({ success: true, mode: row.mode });
+    } else {
+      res.status(401).json({ success: false, error: "Código inválido" });
+    }
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
