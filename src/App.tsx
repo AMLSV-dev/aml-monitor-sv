@@ -783,7 +783,7 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           code, 
-          userInfo: userInfo.name ? userInfo : null,
+          userInfo: (userInfo.name || userInfo.email || userInfo.company) ? userInfo : null,
           deviceId 
         })
       });
@@ -862,6 +862,31 @@ export default function App() {
     } catch (e) {
       showToast("Error de conexión con el servidor", "error");
     }
+  };
+
+  const resetDemos = async () => {
+    setModal({
+      open: true,
+      title: "Resetear Límites de Demo",
+      message: "¿Estás seguro de que deseas resetear todos los límites de créditos de las demos? Esto permitirá que todos los dispositivos vuelvan a tener 15 créditos.",
+      onConfirm: async () => {
+        try {
+          const res = await fetch("/api/admin/reset-demos", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ key: adminKeyInput })
+          });
+          if (res.ok) {
+            showToast("Límites de demo reseteados correctamente", "success");
+          } else {
+            showToast("Error al resetear límites", "error");
+          }
+        } catch (e) {
+          showToast("Error de conexión", "error");
+        }
+        setModal(null);
+      }
+    });
   };
 
   const fetchAdminStats = async () => {
@@ -1209,7 +1234,13 @@ export default function App() {
               <h1 className="text-3xl font-serif font-bold mb-2">Panel de Control</h1>
               <p className={s.muted}>Monitoreo de activaciones y métricas del sistema.</p>
             </div>
-            <div className="flex gap-4">
+            <div className="flex flex-wrap gap-4">
+              <button 
+                onClick={resetDemos}
+                className="px-6 py-3 rounded-xl border border-blue-200 text-blue-600 font-bold text-xs uppercase tracking-widest hover:bg-blue-50 transition-all"
+              >
+                Reset Demos
+              </button>
               <button 
                 onClick={() => {
                   setModal({
@@ -1268,13 +1299,14 @@ export default function App() {
                     <th className="px-8 py-4">Usuario / Empresa</th>
                     <th className="px-8 py-4">Correo</th>
                     <th className="px-8 py-4">Modo</th>
+                    <th className="px-8 py-4">Dispositivo</th>
                     <th className="px-8 py-4">Fecha</th>
                   </tr>
                 </thead>
                 <tbody>
                   {adminStats.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="px-8 py-10 text-center text-sm text-slate-400">No hay activaciones registradas.</td>
+                      <td colSpan={5} className="px-8 py-10 text-center text-sm text-slate-400">No hay activaciones registradas.</td>
                     </tr>
                   ) : (
                     adminStats.map((stat, i) => (
@@ -1288,6 +1320,9 @@ export default function App() {
                           <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase ${stat.mode === 'admin' ? 'bg-purple-100 text-purple-700' : stat.mode === 'full' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
                             {stat.mode}
                           </span>
+                        </td>
+                        <td className="px-8 py-5 font-mono text-[10px] text-slate-400">
+                          {stat.device_id ? stat.device_id.substring(0, 12) + '...' : '-'}
                         </td>
                         <td className="px-8 py-5 text-sm">{formatDate(stat.activated_at)}</td>
                       </tr>

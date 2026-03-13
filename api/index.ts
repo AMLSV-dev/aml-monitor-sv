@@ -55,6 +55,7 @@ if (db) {
       email TEXT,
       company TEXT,
       mode TEXT,
+      device_id TEXT,
       activated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -82,6 +83,7 @@ if (db) {
   try { db.exec("ALTER TABLE demo_usage ADD COLUMN email TEXT"); } catch (e) {}
   try { db.exec("ALTER TABLE demo_usage ADD COLUMN company TEXT"); } catch (e) {}
   try { db.exec("ALTER TABLE demo_usage ADD COLUMN mode TEXT"); } catch (e) {}
+  try { db.exec("ALTER TABLE demo_usage ADD COLUMN device_id TEXT"); } catch (e) {}
 }
 
 const app = express();
@@ -191,10 +193,14 @@ app.post("/api/auth/validate", (req, res) => {
     const row = db.prepare("SELECT mode FROM access_keys WHERE key_value = ?").get(code);
     if (row) {
       // Record access
-      if (userInfo) {
-        db.prepare("INSERT INTO demo_usage (client_name, email, company, mode) VALUES (?, ?, ?, ?)")
-          .run(userInfo.name || 'Anónimo', userInfo.email || '', userInfo.company || '', row.mode);
-      }
+      db.prepare("INSERT INTO demo_usage (client_name, email, company, mode, device_id) VALUES (?, ?, ?, ?, ?)")
+        .run(
+          userInfo?.name || 'Anónimo', 
+          userInfo?.email || '', 
+          userInfo?.company || '', 
+          row.mode,
+          deviceId || null
+        );
 
       // Handle demo credits if applicable
       if (row.mode === 'demo' && deviceId) {
@@ -265,6 +271,19 @@ app.get("/api/admin/stats", (req, res) => {
   try {
     const stats = db.prepare("SELECT * FROM demo_usage ORDER BY activated_at DESC").all();
     res.json(stats);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/admin/reset-demos", (req, res) => {
+  const { key } = req.body;
+  if (key !== process.env.ADMIN_KEY && key !== 'admin123' && key !== 'admin99') {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  try {
+    db.prepare("DELETE FROM demo_limits").run();
+    res.json({ success: true, message: "Todos los límites de demo han sido reseteados." });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
