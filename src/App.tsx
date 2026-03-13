@@ -68,6 +68,10 @@ export default function App() {
   const [modal, setModal] = useState<{ open: boolean; title: string; message: string; onConfirm: () => void } | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isDemo, setIsDemo] = useState(false);
+  const [appMode, setAppMode] = useState<'demo' | 'admin' | 'full' | null>(null);
+  const [adminKeyInput, setAdminKeyInput] = useState("");
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [adminStats, setAdminStats] = useState<any[]>([]);
   const [demoResultsLeft, setDemoResultsLeft] = useState(15);
   const [demoExpiry, setDemoExpiry] = useState<string | null>(null);
   const [deviceId, setDeviceId] = useState<string>("");
@@ -687,34 +691,24 @@ export default function App() {
     }
     setDeviceId(dId);
 
-    // Check for demo mode in localStorage
+    // Check for demo mode in localStorage (but don't auto-activate appMode)
     const demoData = localStorage.getItem('aml_demo_session');
     if (demoData) {
       const { expiry, localCredits } = JSON.parse(demoData);
       if (new Date(expiry) > new Date()) {
         setIsDemo(true);
         setDemoExpiry(expiry);
-        
-        // Use local credits as a baseline in case server reset
-        if (localCredits !== undefined) {
-          setDemoResultsLeft(localCredits);
-        }
+        if (localCredits !== undefined) setDemoResultsLeft(localCredits);
 
-        // Sync credits with backend and pick the MINIMUM
         fetch(`/api/demo/credits?deviceId=${dId}`)
           .then(r => r.json())
           .then(data => {
             setDemoResultsLeft(prev => {
               const serverVal = data.creditsLeft;
-              // If server was reset (15) but local is lower, keep local
-              // Otherwise use server value
               const finalVal = Math.min(prev, serverVal);
-              
-              // Update local storage with the final value
               const updatedDemo = JSON.parse(localStorage.getItem('aml_demo_session') || '{}');
               updatedDemo.localCredits = finalVal;
               localStorage.setItem('aml_demo_session', JSON.stringify(updatedDemo));
-              
               return finalVal;
             });
           })
@@ -734,10 +728,10 @@ export default function App() {
     };
     localStorage.setItem('aml_demo_session', JSON.stringify(demoSession));
     setIsDemo(true);
+    setAppMode('demo');
     setDemoExpiry(demoSession.expiry);
     setDemoResultsLeft(15);
     
-    // Registrar en el backend para seguimiento de administración
     try {
       await fetch("/api/demo/activate", {
         method: "POST",
@@ -749,6 +743,35 @@ export default function App() {
     }
 
     showToast("Modo Demo activado por 48 horas", "success");
+  };
+
+  const handleAdminLogin = async () => {
+    try {
+      const res = await fetch(`/api/admin/stats?key=${adminKeyInput}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAdminStats(data);
+        setIsAdminAuthenticated(true);
+        setAppMode('admin');
+        showToast("Acceso Administrador concedido", "success");
+      } else {
+        showToast("Clave de administrador incorrecta", "error");
+      }
+    } catch (e) {
+      showToast("Error de conexión con el servidor", "error");
+    }
+  };
+
+  const fetchAdminStats = async () => {
+    try {
+      const res = await fetch(`/api/admin/stats?key=${adminKeyInput}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAdminStats(data);
+      }
+    } catch (e) {
+      console.error("Error fetching admin stats:", e);
+    }
   };
 
   const updateDemoUsage = async (count: number) => {
@@ -985,6 +1008,197 @@ export default function App() {
 
   const s = themeStyles[theme];
 
+  if (!appMode) {
+    return (
+      <div className={`min-h-screen ${s.bg} flex items-center justify-center p-6 transition-colors duration-500`}>
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-8"
+        >
+          {/* Left Side: Branding */}
+          <div className="flex flex-col justify-center space-y-6">
+            <div className={`w-16 h-16 ${s.accent} rounded-3xl flex items-center justify-center shadow-2xl shadow-blue-900/20`}>
+              <Shield className="text-white w-10 h-10" />
+            </div>
+            <div>
+              <h1 className={`text-4xl font-serif font-bold ${s.text} mb-2`}>AML Monitoring SV</h1>
+              <p className={`text-lg ${s.muted}`}>Inteligencia Avanzada para el Cumplimiento Normativo en El Salvador.</p>
+            </div>
+            <div className="space-y-4">
+              {[
+                "Monitoreo de FGR en tiempo real",
+                "Análisis de medios digitales con IA",
+                "Detección de riesgos reputacionales",
+                "Exportación automatizada de hallazgos"
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span className={`text-sm ${s.muted}`}>{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Right Side: Options */}
+          <div className="space-y-4">
+            <button 
+              onClick={activateDemo}
+              className={`w-full p-8 rounded-3xl border-2 border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10 transition-all text-left group relative overflow-hidden`}
+            >
+              <div className="flex justify-between items-start mb-4">
+                <div className="p-3 bg-blue-500 rounded-2xl text-white shadow-lg shadow-blue-500/20">
+                  <RefreshCw className="w-6 h-6" />
+                </div>
+                <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest bg-blue-100 px-3 py-1 rounded-full">
+                  {isDemo ? "Sesión Activa" : "Gratis 48h"}
+                </span>
+              </div>
+              <h3 className={`text-xl font-bold ${s.text} mb-1`}>{isDemo ? "Continuar Demo" : "Demo Monitoreo"}</h3>
+              <p className={`text-sm ${s.muted}`}>Acceso inmediato con 15 créditos de análisis para pruebas rápidas.</p>
+            </button>
+
+            <div className={`w-full p-8 rounded-3xl border ${s.card} space-y-4 shadow-sm`}>
+              <div className="flex items-center gap-3 mb-2">
+                <div className={`p-3 ${s.accent} rounded-2xl text-white`}>
+                  <Terminal className="w-6 h-6" />
+                </div>
+                <h3 className={`text-xl font-bold ${s.text}`}>Acceso Administrador</h3>
+              </div>
+              <input 
+                type="password"
+                placeholder="Clave de acceso"
+                value={adminKeyInput}
+                onChange={(e) => setAdminKeyInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()}
+                className={`w-full px-5 py-4 rounded-xl border ${s.input} focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm`}
+              />
+              <button 
+                onClick={handleAdminLogin}
+                className={`w-full py-4 rounded-xl ${s.accent} text-white font-bold uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-blue-900/10 text-xs`}
+              >
+                Ingresar al Panel
+              </button>
+            </div>
+
+            <button 
+              onClick={() => setAppMode('full')}
+              className={`w-full p-6 rounded-3xl border border-dashed ${s.card} flex items-center justify-between group hover:border-blue-500/50 transition-all`}
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-slate-100 rounded-2xl text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-500 transition-all">
+                  <Shield className="w-5 h-5" />
+                </div>
+                <div className="text-left">
+                  <h4 className={`text-sm font-bold ${s.text}`}>Versión Corporativa</h4>
+                  <p className={`text-xs ${s.muted}`}>Uso ilimitado con API Key propia</p>
+                </div>
+              </div>
+              <ExternalLink className="w-4 h-4 text-slate-300 group-hover:text-blue-500 transition-all" />
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (appMode === 'admin' && isAdminAuthenticated) {
+    return (
+      <div className={`min-h-screen ${s.bg} ${s.text} p-6 md:p-10 transition-colors duration-500`}>
+        <div className="max-w-6xl mx-auto space-y-8">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className={`p-2 ${s.accent} rounded-lg text-white`}>
+                  <Terminal className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-blue-500">Admin Console</span>
+              </div>
+              <h1 className="text-3xl font-serif font-bold mb-2">Panel de Control</h1>
+              <p className={s.muted}>Monitoreo de activaciones y métricas del sistema.</p>
+            </div>
+            <div className="flex gap-4">
+              <button 
+                onClick={() => {
+                  setModal({
+                    open: true,
+                    title: "Reiniciar Base de Datos",
+                    message: "Esta acción eliminará todos los hallazgos y noticias de la bandeja. ¿Estás seguro?",
+                    onConfirm: async () => {
+                      await fetch("/api/news/reset", { method: "POST" });
+                      await fetch("/api/raw-news/reset", { method: "POST" });
+                      setNews([]);
+                      setRawNews([]);
+                      setModal(null);
+                      showToast("Base de datos reiniciada", "success");
+                    }
+                  });
+                }}
+                className="px-6 py-3 rounded-xl border border-red-200 text-red-600 font-bold text-xs uppercase tracking-widest hover:bg-red-50 transition-all"
+              >
+                Reset DB
+              </button>
+              <button 
+                onClick={() => setAppMode(null)}
+                className={`px-6 py-3 rounded-xl border ${s.card} font-bold text-xs uppercase tracking-widest hover:bg-slate-50 transition-all`}
+              >
+                Cerrar Sesión
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className={`p-8 rounded-3xl border ${s.card} shadow-sm`}>
+              <p className={`text-[10px] font-bold ${s.muted} uppercase tracking-widest mb-2`}>Total Activaciones</p>
+              <h2 className="text-4xl font-bold font-serif">{adminStats.length}</h2>
+            </div>
+            <div className={`p-8 rounded-3xl border ${s.card} shadow-sm`}>
+              <p className={`text-[10px] font-bold ${s.muted} uppercase tracking-widest mb-2`}>Hallazgos Totales</p>
+              <h2 className="text-4xl font-bold font-serif">{news.length}</h2>
+            </div>
+            <div className={`p-8 rounded-3xl border ${s.card} shadow-sm`}>
+              <p className={`text-[10px] font-bold ${s.muted} uppercase tracking-widest mb-2`}>Noticias en Bandeja</p>
+              <h2 className="text-4xl font-bold font-serif">{rawNews.length}</h2>
+            </div>
+          </div>
+
+          <div className={`rounded-3xl border ${s.card} overflow-hidden shadow-sm`}>
+            <div className={`p-6 border-b ${s.header} flex justify-between items-center`}>
+              <h3 className="font-bold uppercase tracking-widest text-xs">Registro de Activaciones Demo</h3>
+              <button onClick={fetchAdminStats} className="p-2 hover:bg-slate-100 rounded-lg transition-all">
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className={`text-[10px] font-bold uppercase tracking-widest ${s.muted} border-b ${s.header}`}>
+                    <th className="px-8 py-4">Cliente / Dispositivo</th>
+                    <th className="px-8 py-4">Fecha Activación</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {adminStats.length === 0 ? (
+                    <tr>
+                      <td colSpan={2} className="px-8 py-10 text-center text-sm text-slate-400">No hay activaciones registradas.</td>
+                    </tr>
+                  ) : (
+                    adminStats.map((stat, i) => (
+                      <tr key={i} className={`border-b ${s.header} ${s.rowHover} transition-colors`}>
+                        <td className="px-8 py-5 font-medium">{stat.client_name}</td>
+                        <td className="px-8 py-5 text-sm">{new Date(stat.activated_at).toLocaleString()}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`min-h-screen ${s.bg} ${s.text} font-sans selection:bg-blue-500/20 selection:text-blue-900 transition-colors duration-500`}>
       <ManualModal 
@@ -1092,15 +1306,13 @@ export default function App() {
             MANUAL
           </button>
 
-          {!isDemo && (
-            <button 
-              onClick={activateDemo}
-              className="flex items-center gap-2 md:gap-3 px-4 md:px-7 py-2.5 md:py-3.5 rounded-xl md:rounded-2xl border border-blue-200 text-blue-600 bg-blue-50 text-[10px] md:text-[12px] font-bold uppercase tracking-widest hover:bg-blue-100 transition-all shadow-sm"
-            >
-              <Shield className="w-3.5 h-3.5 md:w-4 h-4" />
-              Demo
-            </button>
-          )}
+          <button 
+            onClick={() => setAppMode(null)}
+            className={`flex items-center gap-2 md:gap-3 px-4 md:px-7 py-2.5 md:py-3.5 rounded-xl md:rounded-2xl border ${s.card} ${s.text} hover:bg-slate-50 hover:text-slate-900 text-[10px] md:text-[12px] font-bold uppercase tracking-widest transition-all shadow-sm`}
+          >
+            <RefreshCw className="w-3.5 h-3.5 md:w-4 h-4" />
+            MENÚ
+          </button>
 
           <div className={`flex ${s.subtle} p-1 md:p-2 rounded-xl md:rounded-[1.5rem] border shadow-inner transition-colors duration-500`}>
             <button 
