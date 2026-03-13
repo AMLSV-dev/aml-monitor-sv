@@ -79,6 +79,9 @@ if (db) {
   // Migraciones básicas
   try { db.exec("ALTER TABLE news ADD COLUMN source TEXT"); } catch (e) {}
   try { db.exec("ALTER TABLE raw_news ADD COLUMN source TEXT DEFAULT 'FGR'"); } catch (e) {}
+  try { db.exec("ALTER TABLE demo_usage ADD COLUMN email TEXT"); } catch (e) {}
+  try { db.exec("ALTER TABLE demo_usage ADD COLUMN company TEXT"); } catch (e) {}
+  try { db.exec("ALTER TABLE demo_usage ADD COLUMN mode TEXT"); } catch (e) {}
 }
 
 const app = express();

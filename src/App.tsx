@@ -698,7 +698,8 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const urlKey = params.get('access');
     if (urlKey) {
-      validateAccessCode(urlKey);
+      setAccessCode(urlKey);
+      showToast("Por favor, completa tus datos para continuar", "success");
     } else {
       // Check for existing session
       const session = localStorage.getItem('aml_access_session');
@@ -743,10 +744,6 @@ export default function App() {
     const code = codeToValidate || accessCode;
     if (!code) return;
 
-    // If it's not from URL, we might want to check if user info is filled for tracking
-    // But for URL access, we might skip or ask later. 
-    // Let's assume for manual entry we want the info.
-
     try {
       const res = await fetch("/api/auth/validate", {
         method: "POST",
@@ -760,6 +757,13 @@ export default function App() {
       
       if (res.ok) {
         const data = await res.json();
+        
+        // Check mandatory fields for non-admin modes
+        if (data.mode !== 'admin' && (!userInfo.name || !userInfo.email || !userInfo.company)) {
+          showToast("Por favor, completa tus datos para activar el acceso " + data.mode.toUpperCase(), "error");
+          return;
+        }
+
         setAppMode(data.mode);
         setIsLocked(false);
         setAccessCode(code);
@@ -1103,21 +1107,21 @@ export default function App() {
             <div className="space-y-3">
               <input 
                 type="text"
-                placeholder="Nombre Completo"
+                placeholder="Nombre Completo *"
                 value={userInfo.name}
                 onChange={(e) => setUserInfo({ ...userInfo, name: e.target.value })}
                 className={`w-full px-5 py-3 rounded-xl border ${s.input} focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm`}
               />
               <input 
                 type="email"
-                placeholder="Correo Institucional"
+                placeholder="Correo Electrónico *"
                 value={userInfo.email}
                 onChange={(e) => setUserInfo({ ...userInfo, email: e.target.value })}
                 className={`w-full px-5 py-3 rounded-xl border ${s.input} focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm`}
               />
               <input 
                 type="text"
-                placeholder="Empresa / Institución"
+                placeholder="Empresa o 'Independiente' *"
                 value={userInfo.company}
                 onChange={(e) => setUserInfo({ ...userInfo, company: e.target.value })}
                 className={`w-full px-5 py-3 rounded-xl border ${s.input} focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm`}
@@ -1127,7 +1131,7 @@ export default function App() {
             <div className="relative pt-2">
               <input 
                 type="password"
-                placeholder="Código de Acceso"
+                placeholder="Código de Acceso *"
                 value={accessCode}
                 onChange={(e) => setAccessCode(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && validateAccessCode()}
@@ -1137,11 +1141,12 @@ export default function App() {
             
             <button 
               onClick={() => validateAccessCode()}
-              disabled={!userInfo.name || !accessCode}
+              disabled={!accessCode}
               className={`w-full py-5 rounded-2xl ${s.accent} text-white font-bold uppercase tracking-[0.2em] hover:opacity-90 transition-all shadow-xl shadow-blue-900/10 text-xs disabled:opacity-30 disabled:cursor-not-allowed`}
             >
               Validar Credenciales
             </button>
+            <p className={`text-[10px] text-center ${s.muted} italic`}>* Datos requeridos para Demo y Corporativo</p>
           </div>
 
           <div className="pt-4">
