@@ -694,13 +694,27 @@ export default function App() {
     }
     setDeviceId(dId);
 
-    // Check for access key in URL
+    // Check for obfuscated access token in URL
     const params = new URLSearchParams(window.location.search);
-    const urlKey = params.get('access');
-    if (urlKey) {
-      setAccessCode(urlKey);
-      showToast("Por favor, completa tus datos para continuar", "success");
+    const token = params.get('t');
+    if (token) {
+      try {
+        const decoded = atob(token);
+        setAccessCode(decoded);
+        showToast("Portal de Seguridad: Por favor, completa tus datos", "success");
+      } catch (e) {
+        console.error("Invalid token");
+      }
+      // Clean URL immediately to hide the token from address bar
+      window.history.replaceState({}, document.title, window.location.pathname);
     } else {
+      // Check for legacy 'access' param (and clean it)
+      const legacyAccess = params.get('access');
+      if (legacyAccess) {
+        setAccessCode(legacyAccess);
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
       // Check for existing session
       const session = localStorage.getItem('aml_access_session');
       if (session) {
