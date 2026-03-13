@@ -724,7 +724,6 @@ export default function App() {
         setIsLocked(false);
         if (mode === 'admin') setIsAdminAuthenticated(true);
       }
-    }
 
     // Check for demo mode in localStorage (but don't auto-activate appMode)
     const demoData = localStorage.getItem('aml_demo_session');
@@ -1112,9 +1111,13 @@ export default function App() {
             <Shield className="text-white w-10 h-10" />
           </div>
           
-          <div>
-            <h1 className={`text-3xl font-serif font-bold ${s.text} mb-2`}>Acceso Restringido</h1>
-            <p className={`${s.muted} text-sm`}>Ingresa tu código de acceso personalizado para desbloquear la plataforma.</p>
+          <div className="space-y-2">
+            <div className="flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest text-emerald-500 mb-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Conexión Encriptada
+            </div>
+            <h1 className={`text-3xl font-serif font-bold ${s.text} mb-2`}>Portal de Seguridad</h1>
+            <p className={`${s.muted} text-sm`}>Ingresa tus credenciales para desbloquear la plataforma.</p>
           </div>
 
           <div className="space-y-4">
