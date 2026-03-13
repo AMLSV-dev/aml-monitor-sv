@@ -1072,53 +1072,53 @@ export default function App() {
         )}
       </AnimatePresence>
       {/* Header */}
-      <header className={`border-b ${s.header} p-6 flex flex-col md:flex-row justify-between items-center sticky top-0 backdrop-blur-md z-30 gap-4 shadow-sm transition-colors duration-500`}>
-        <div className="flex items-center gap-5">
-          <div className={`w-12 h-12 ${s.accent} flex items-center justify-center rounded-2xl shadow-lg shadow-blue-900/20`}>
-            <Shield className="text-white w-7 h-7" />
+      <header className={`border-b ${s.header} p-4 md:p-6 flex flex-col lg:flex-row justify-between items-center sticky top-0 backdrop-blur-md z-30 gap-4 shadow-sm transition-colors duration-500`}>
+        <div className="flex items-center gap-3 md:gap-5 w-full lg:w-auto justify-center lg:justify-start">
+          <div className={`w-10 h-10 md:w-12 md:h-12 ${s.accent} flex items-center justify-center rounded-xl md:rounded-2xl shadow-lg shadow-blue-900/20`}>
+            <Shield className="text-white w-6 h-6 md:w-7 md:h-7" />
           </div>
           <div>
-            <h1 className={`text-2xl font-bold tracking-tight font-serif ${s.text}`}>Cumplimiento SV</h1>
-            <p className={`text-[10px] font-bold ${s.muted} uppercase tracking-[0.3em]`}>Intelligence & AML Monitoring</p>
+            <h1 className={`text-xl md:text-2xl font-bold tracking-tight font-serif ${s.text}`}>Cumplimiento SV</h1>
+            <p className={`text-[8px] md:text-[10px] font-bold ${s.muted} uppercase tracking-[0.2em] md:tracking-[0.3em]`}>Intelligence & AML Monitoring</p>
           </div>
         </div>
 
-        <div className="flex-1 flex justify-center items-center gap-6">
+        <div className="flex flex-wrap justify-center items-center gap-3 md:gap-6 w-full lg:flex-1">
           <button 
             onClick={() => setIsManualOpen(true)}
-            className={`flex items-center gap-3 px-7 py-3.5 rounded-2xl border ${s.card} ${s.text} hover:bg-slate-50 hover:text-slate-900 text-[12px] font-bold uppercase tracking-widest transition-all shadow-sm`}
+            className={`flex items-center gap-2 md:gap-3 px-4 md:px-7 py-2.5 md:py-3.5 rounded-xl md:rounded-2xl border ${s.card} ${s.text} hover:bg-slate-50 hover:text-slate-900 text-[10px] md:text-[12px] font-bold uppercase tracking-widest transition-all shadow-sm`}
           >
-            <BookOpen className="w-4 h-4" />
+            <BookOpen className="w-3.5 h-3.5 md:w-4 h-4" />
             MANUAL
           </button>
 
           {!isDemo && (
             <button 
               onClick={activateDemo}
-              className="flex items-center gap-3 px-7 py-3.5 rounded-2xl border border-blue-200 text-blue-600 bg-blue-50 text-[12px] font-bold uppercase tracking-widest hover:bg-blue-100 transition-all shadow-sm"
+              className="flex items-center gap-2 md:gap-3 px-4 md:px-7 py-2.5 md:py-3.5 rounded-xl md:rounded-2xl border border-blue-200 text-blue-600 bg-blue-50 text-[10px] md:text-[12px] font-bold uppercase tracking-widest hover:bg-blue-100 transition-all shadow-sm"
             >
-              <Shield className="w-4 h-4" />
-              Demo Monitoreo
+              <Shield className="w-3.5 h-3.5 md:w-4 h-4" />
+              Demo
             </button>
           )}
 
-          <div className={`flex ${s.subtle} p-2 rounded-[1.5rem] border shadow-inner transition-colors duration-500`}>
+          <div className={`flex ${s.subtle} p-1 md:p-2 rounded-xl md:rounded-[1.5rem] border shadow-inner transition-colors duration-500`}>
             <button 
               onClick={() => setViewMode('raw')}
-              className={`px-7 py-3 rounded-2xl text-[12px] font-bold uppercase tracking-widest transition-all duration-300 ${viewMode === 'raw' ? (theme === 'dark' ? 'bg-slate-700 text-white' : 'bg-white text-slate-900 shadow-md border border-slate-200') : s.muted}`}
+              className={`px-4 md:px-7 py-2 md:py-3 rounded-lg md:rounded-2xl text-[10px] md:text-[12px] font-bold uppercase tracking-widest transition-all duration-300 ${viewMode === 'raw' ? (theme === 'dark' ? 'bg-slate-700 text-white' : 'bg-white text-slate-900 shadow-md border border-slate-200') : s.muted}`}
             >
               Bandeja
             </button>
             <button 
               onClick={() => setViewMode('analyzed')}
-              className={`px-7 py-3 rounded-2xl text-[12px] font-bold uppercase tracking-widest transition-all duration-300 ${viewMode === 'analyzed' ? (theme === 'dark' ? 'bg-slate-700 text-white' : 'bg-white text-slate-900 shadow-md border border-slate-200') : s.muted}`}
+              className={`px-4 md:px-7 py-2 md:py-3 rounded-lg md:rounded-2xl text-[10px] md:text-[12px] font-bold uppercase tracking-widest transition-all duration-300 ${viewMode === 'analyzed' ? (theme === 'dark' ? 'bg-slate-700 text-white' : 'bg-white text-slate-900 shadow-md border border-slate-200') : s.muted}`}
             >
               Hallazgos
             </button>
           </div>
         </div>
 
-        <div className="w-[200px] hidden md:block" /> {/* Spacer to balance the logo */}
+        <div className="w-[200px] hidden lg:block" /> {/* Spacer to balance the logo */}
       </header>
 
       <div className={`flex justify-center p-4 border-b ${s.header} transition-colors duration-500 sticky top-[96px] z-20`}>
@@ -1147,50 +1147,50 @@ export default function App() {
         </div>
       )}
 
-      <main className="p-10 max-w-[1600px] mx-auto">
-        <div className={`relative mb-12 ${s.card} p-10 rounded-[2.5rem] border shadow-sm flex flex-col gap-10 transition-colors duration-500`}>
-          <div className="flex flex-wrap gap-12 items-center justify-center">
-            <div className="flex flex-col items-center">
+      <main className="p-4 md:p-10 max-w-[1600px] mx-auto">
+        <div className={`relative mb-8 md:mb-12 ${s.card} p-6 md:p-10 rounded-3xl md:rounded-[2.5rem] border shadow-sm flex flex-col gap-8 md:gap-10 transition-colors duration-500`}>
+          <div className="flex flex-col lg:flex-row flex-wrap gap-8 md:gap-12 items-center justify-center">
+            <div className="flex flex-col items-center w-full lg:w-auto">
               <label className={`text-[10px] font-bold ${s.muted} uppercase tracking-[0.2em] mb-3`}>Fuente de Búsqueda</label>
-              <div className={`flex ${s.subtle} p-1.5 rounded-2xl border transition-colors duration-500`}>
+              <div className={`flex ${s.subtle} p-1.5 rounded-2xl border transition-colors duration-500 w-full lg:w-auto`}>
                 <button 
                   onClick={() => setSearchSource('fgr')}
-                  className={`px-5 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${searchSource === 'fgr' ? (theme === 'dark' ? 'bg-slate-700 text-white' : 'bg-white text-slate-900 border border-slate-200 shadow-sm') : s.muted}`}
+                  className={`flex-1 lg:flex-none px-5 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${searchSource === 'fgr' ? (theme === 'dark' ? 'bg-slate-700 text-white' : 'bg-white text-slate-900 border border-slate-200 shadow-sm') : s.muted}`}
                 >
                   FGR SV
                 </button>
                 <button 
                   onClick={() => setSearchSource('digital')}
-                  className={`px-5 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${searchSource === 'digital' ? (theme === 'dark' ? 'bg-slate-700 text-white' : 'bg-white text-slate-900 border border-slate-200 shadow-sm') : s.muted}`}
+                  className={`flex-1 lg:flex-none px-5 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${searchSource === 'digital' ? (theme === 'dark' ? 'bg-slate-700 text-white' : 'bg-white text-slate-900 border border-slate-200 shadow-sm') : s.muted}`}
                 >
                   Medios Digitales
                 </button>
               </div>
             </div>
 
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center w-full lg:w-auto">
               <label className={`text-[10px] font-bold ${s.muted} uppercase tracking-[0.2em] mb-3`}>Rango de Monitoreo</label>
-              <div className="flex items-center gap-4">
-                <input type="date" className={`${s.input} border rounded-xl px-4 py-3.5 text-xs font-semibold outline-none focus:border-blue-500/50 transition-colors`} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-                <span className={`${s.muted} font-light`}>to</span>
-                <input type="date" className={`${s.input} border rounded-xl px-4 py-3.5 text-xs font-semibold outline-none focus:border-blue-500/50 transition-colors`} value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+              <div className="flex items-center gap-3 md:gap-4 w-full lg:w-auto justify-center">
+                <input type="date" className={`${s.input} border rounded-xl px-3 md:px-4 py-3 md:py-3.5 text-[10px] md:text-xs font-semibold outline-none focus:border-blue-500/50 transition-colors flex-1 lg:flex-none`} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                <span className={`${s.muted} font-light text-xs`}>to</span>
+                <input type="date" className={`${s.input} border rounded-xl px-3 md:px-4 py-3 md:py-3.5 text-[10px] md:text-xs font-semibold outline-none focus:border-blue-500/50 transition-colors flex-1 lg:flex-none`} value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
               </div>
             </div>
 
             {viewMode === 'raw' && (
-              <div className="flex flex-col items-center">
+              <div className="flex flex-col items-center w-full lg:w-auto">
                 <label className={`text-[10px] font-bold ${s.muted} uppercase tracking-[0.2em] mb-3`}>Acciones de Procesamiento</label>
-                <div className="flex gap-6">
+                <div className="flex flex-col sm:flex-row gap-4 md:gap-6 w-full lg:w-auto">
                   {scraping || analyzing ? (
-                    <button onClick={handleStop} className="flex items-center gap-3 px-8 py-3.5 rounded-2xl bg-red-50 text-red-600 text-[11px] font-bold uppercase tracking-widest hover:bg-red-100 transition-all border border-red-100">
+                    <button onClick={handleStop} className="flex items-center justify-center gap-3 px-8 py-3.5 rounded-2xl bg-red-50 text-red-600 text-[11px] font-bold uppercase tracking-widest hover:bg-red-100 transition-all border border-red-100 w-full">
                       <Square className="w-4 h-4 fill-current" /> Detener Proceso
                     </button>
                   ) : (
-                    <div className="flex gap-6">
-                      <button onClick={startScrape} className={`flex items-center gap-3 px-8 py-3.5 rounded-2xl border ${s.subtle} ${s.text} text-[11px] font-bold uppercase tracking-widest hover:opacity-80 transition-all`}>
+                    <div className="flex flex-col sm:flex-row gap-4 md:gap-6 w-full">
+                      <button onClick={startScrape} className={`flex items-center justify-center gap-3 px-8 py-3.5 rounded-2xl border ${s.subtle} ${s.text} text-[11px] font-bold uppercase tracking-widest hover:opacity-80 transition-all w-full`}>
                         <RefreshCw className="w-4 h-4" /> {searchSource === 'fgr' ? 'Extraer FGR' : 'Buscar Medios'}
                       </button>
-                      <button onClick={analyzeNews} className={`flex items-center gap-3 px-8 py-3.5 rounded-2xl ${s.accent} ${s.accentText} text-[11px] font-bold uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-blue-900/20`}>
+                      <button onClick={analyzeNews} className={`flex items-center justify-center gap-3 px-8 py-3.5 rounded-2xl ${s.accent} ${s.accentText} text-[11px] font-bold uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-blue-900/20 w-full`}>
                         <Shield className="w-4 h-4" /> Analizar
                       </button>
                     </div>
@@ -1211,27 +1211,27 @@ export default function App() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mb-12">
-          <div className={`${s.card} p-8 rounded-[2rem] border shadow-sm flex items-center justify-between group hover:border-blue-200 transition-all`}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-10 mb-8 md:mb-12">
+          <div className={`${s.card} p-6 md:p-8 rounded-2xl md:rounded-[2rem] border shadow-sm flex items-center justify-between group hover:border-blue-200 transition-all`}>
             <div>
               <p className={`text-[10px] font-bold ${s.muted} uppercase tracking-[0.2em] mb-2`}>Noticias en Bandeja</p>
-              <p className={`text-5xl font-serif ${s.text}`}>{filteredRawNews.length}</p>
+              <p className={`text-3xl md:text-5xl font-serif ${s.text}`}>{filteredRawNews.length}</p>
             </div>
-            <div className={`w-16 h-16 ${s.subtle} rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform border`}>
-              <RefreshCw className={`${s.muted} w-8 h-8`} />
+            <div className={`w-12 h-12 md:w-16 md:h-16 ${s.subtle} rounded-xl md:rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform border`}>
+              <RefreshCw className={`${s.muted} w-6 h-6 md:w-8 md:h-8`} />
             </div>
           </div>
-          <div className={`${s.card} p-8 rounded-[2rem] border shadow-sm flex items-center justify-between group hover:border-emerald-200 transition-all`}>
+          <div className={`${s.card} p-6 md:p-8 rounded-2xl md:rounded-[2rem] border shadow-sm flex items-center justify-between group hover:border-emerald-200 transition-all`}>
             <div>
               <p className={`text-[10px] font-bold ${s.muted} uppercase tracking-[0.2em] mb-2`}>Hallazgos AML</p>
-              <p className={`text-5xl font-serif ${s.text}`}>{filteredNews.length}</p>
+              <p className={`text-3xl md:text-5xl font-serif ${s.text}`}>{filteredNews.length}</p>
             </div>
-            <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform border border-emerald-100">
-              <Shield className="text-emerald-500 w-8 h-8" />
+            <div className="w-12 h-12 md:w-16 md:h-16 bg-emerald-50 rounded-xl md:rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform border border-emerald-100">
+              <Shield className="text-emerald-500 w-6 h-6 md:w-8 md:h-8" />
             </div>
           </div>
           {isDemo && (
-            <div className={`${s.card} p-8 rounded-[2rem] border shadow-sm flex flex-col justify-center group hover:border-blue-200 transition-all`}>
+            <div className={`${s.card} p-6 md:p-8 rounded-2xl md:rounded-[2rem] border shadow-sm flex flex-col justify-center group hover:border-blue-200 transition-all`}>
               <p className={`text-[10px] font-bold ${s.muted} uppercase tracking-[0.2em] mb-4`}>Proyección Uso Demo</p>
               <div className="flex items-end gap-2">
                 <div className={`flex-1 h-2 ${s.subtle} rounded-full overflow-hidden`}>
@@ -1245,12 +1245,12 @@ export default function App() {
             </div>
           )}
 
-          <div className={`${s.accent} p-8 rounded-[2rem] border shadow-xl flex flex-col justify-center group hover:scale-[1.02] transition-all cursor-pointer`} onClick={() => window.location.href = 'mailto:monitoreo.aml.elsalvador@gmail.com'}>
+          <div className={`${s.accent} p-6 md:p-8 rounded-2xl md:rounded-[2rem] border shadow-xl flex flex-col justify-center group hover:scale-[1.02] transition-all cursor-pointer sm:col-span-2 lg:col-span-1`} onClick={() => window.location.href = 'mailto:monitoreo.aml.elsalvador@gmail.com'}>
             <div className="flex items-center justify-between mb-4">
               <p className="text-[10px] font-bold text-white/70 uppercase tracking-[0.2em]">Acceso Ilimitado</p>
               <ExternalLink className="w-4 h-4 text-white/50" />
             </div>
-            <p className="text-lg font-bold text-white leading-tight">Obtén la Versión Completa</p>
+            <p className="text-base md:text-lg font-bold text-white leading-tight">Obtén la Versión Completa</p>
             <p className="text-[10px] text-white/60 mt-2 font-medium">monitoreo.aml.elsalvador@gmail.com</p>
           </div>
         </div>
@@ -1261,115 +1261,117 @@ export default function App() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
-              className="flex justify-center gap-6 mb-10"
+              className="flex flex-col sm:flex-row justify-center gap-4 md:gap-6 mb-8 md:mb-10"
             >
               <button 
                 onClick={exportToExcel} 
-                className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-emerald-400 border-2 border-amber-400 text-slate-900 text-[11px] font-bold uppercase tracking-widest hover:bg-emerald-500 transition-all shadow-xl shadow-emerald-500/20 group relative overflow-hidden"
+                className="flex items-center justify-center gap-3 px-6 md:px-8 py-3 md:py-4 rounded-xl md:rounded-2xl bg-emerald-400 border-2 border-amber-400 text-slate-900 text-[10px] md:text-[11px] font-bold uppercase tracking-widest hover:bg-emerald-500 transition-all shadow-xl shadow-emerald-500/20 group relative overflow-hidden w-full sm:w-auto"
                 style={{ backgroundImage: 'radial-gradient(rgba(0,0,0,0.05) 1px, transparent 0)', backgroundSize: '8px 8px' }}
               >
-                <TableIcon className="w-5 h-5" />
-                <span>Exportar a Excel</span>
+                <TableIcon className="w-4 h-4 md:w-5 md:h-5" />
+                <span>Excel</span>
               </button>
               <button 
                 onClick={exportToPDF} 
-                className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-rose-300 border-2 border-rose-400 text-slate-900 text-[11px] font-bold uppercase tracking-widest hover:bg-rose-400 transition-all shadow-xl shadow-rose-500/10 group"
+                className="flex items-center justify-center gap-3 px-6 md:px-8 py-3 md:py-4 rounded-xl md:rounded-2xl bg-rose-300 border-2 border-rose-400 text-slate-900 text-[10px] md:text-[11px] font-bold uppercase tracking-widest hover:bg-rose-400 transition-all shadow-xl shadow-rose-500/10 group w-full sm:w-auto"
               >
-                <FileText className="w-5 h-5" />
-                <span>Exportar a PDF</span>
+                <FileText className="w-4 h-4 md:w-5 md:h-5" />
+                <span>PDF</span>
               </button>
             </motion.div>
           )}
         </AnimatePresence>
 
-        <div className={`${s.card} rounded-[2.5rem] border shadow-sm overflow-hidden transition-colors duration-500`}>
-          <div className={`grid ${viewMode === 'analyzed' ? 'grid-cols-[100px_1.2fr_120px_1fr_1fr_1.5fr_1fr_60px]' : 'grid-cols-[60px_120px_150px_1fr_140px_60px]'} border-b ${s.tableHeader} text-[10px] font-bold ${s.muted} uppercase tracking-[0.2em] p-6`}>
-            {viewMode === 'raw' && (
-              <div className="flex items-center justify-center">
-                <input type="checkbox" className="w-5 h-5 rounded-lg border-slate-300 bg-white text-blue-600 focus:ring-blue-500" checked={selectedRawIds.length > 0 && selectedRawIds.length === filteredRawNews.length} onChange={toggleSelectAll} />
-              </div>
-            )}
-            <div>Fecha</div>
-            {viewMode === 'analyzed' ? (
-              <>
-                <div>Sujeto</div>
-                <div>Fuente</div>
-                <div>Delito</div>
-                <div>Título de la Noticia</div>
-                <div>Ubicación</div>
-                <div>Riesgo</div>
-              </>
-            ) : (
-              <>
-                <div>Fuente</div>
-                <div>Título de la Noticia</div>
-                <div className="text-center">Estado</div>
-              </>
-            )}
-            <div className="text-center">Link</div>
-          </div>
-
-          <div className="max-h-[800px] overflow-y-auto divide-y divide-slate-100">
-            <AnimatePresence mode="popLayout">
-              {(viewMode === 'analyzed' ? filteredNews : filteredRawNews).length === 0 ? (
-                <div className="p-20 text-center">
-                  <p className={`${s.muted} font-serif italic`}>No se encontraron registros {viewMode === 'analyzed' ? 'en hallazgos AML' : 'en la bandeja'}.</p>
-                  <p className={`text-[10px] ${s.muted} opacity-70 uppercase tracking-widest mt-2`}>Inicia una búsqueda o ajusta los filtros de fecha.</p>
+        <div className={`${s.card} rounded-2xl md:rounded-[2.5rem] border shadow-sm overflow-hidden transition-colors duration-500`}>
+          <div className="overflow-x-auto">
+            <div className={`min-w-[1000px] grid ${viewMode === 'analyzed' ? 'grid-cols-[100px_1.2fr_120px_1fr_1fr_1.5fr_1fr_60px]' : 'grid-cols-[60px_120px_150px_1fr_140px_60px]'} border-b ${s.tableHeader} text-[10px] font-bold ${s.muted} uppercase tracking-[0.2em] p-6`}>
+              {viewMode === 'raw' && (
+                <div className="flex items-center justify-center">
+                  <input type="checkbox" className="w-5 h-5 rounded-lg border-slate-300 bg-white text-blue-600 focus:ring-blue-500" checked={selectedRawIds.length > 0 && selectedRawIds.length === filteredRawNews.length} onChange={toggleSelectAll} />
                 </div>
-              ) : (viewMode === 'analyzed' ? filteredNews : filteredRawNews).map((item) => (
-                <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} key={item.id} className={`grid ${viewMode === 'analyzed' ? 'grid-cols-[100px_1.2fr_120px_1fr_1fr_1.5fr_1fr_60px]' : 'grid-cols-[60px_120px_150px_1fr_140px_60px]'} p-7 ${s.rowHover} transition-all group items-center`}>
-                  {viewMode === 'raw' && (
-                    <div className="flex items-center justify-center">
-                      <input type="checkbox" className="w-5 h-5 rounded-lg border-slate-300 bg-white text-blue-600 focus:ring-blue-500" checked={selectedRawIds.includes(item.id)} onChange={() => toggleSelect(item.id)} />
-                    </div>
-                  )}
-                  <div className={`text-[12px] font-semibold ${s.muted}`}>{item.date}</div>
-                  {viewMode === 'analyzed' ? (
-                    <>
-                      <div className={`font-bold ${s.text} text-[14px] uppercase`}>{(item as NewsItem).subject}</div>
-                      <div className="text-[11px] font-bold">
-                        <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase tracking-tighter ${((item as NewsItem).source && (item as NewsItem).source !== 'FGR') ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200'}`}>
-                          {(item as NewsItem).source || 'FGR'}
-                        </span>
+              )}
+              <div>Fecha</div>
+              {viewMode === 'analyzed' ? (
+                <>
+                  <div>Sujeto</div>
+                  <div>Fuente</div>
+                  <div>Delito</div>
+                  <div>Título de la Noticia</div>
+                  <div>Ubicación</div>
+                  <div>Riesgo</div>
+                </>
+              ) : (
+                <>
+                  <div>Fuente</div>
+                  <div>Título de la Noticia</div>
+                  <div className="text-center">Estado</div>
+                </>
+              )}
+              <div className="text-center">Link</div>
+            </div>
+
+            <div className="max-h-[800px] overflow-y-auto divide-y divide-slate-100 min-w-[1000px]">
+              <AnimatePresence mode="popLayout">
+                {(viewMode === 'analyzed' ? filteredNews : filteredRawNews).length === 0 ? (
+                  <div className="p-10 md:p-20 text-center">
+                    <p className={`${s.muted} font-serif italic text-sm md:text-base`}>No se encontraron registros {viewMode === 'analyzed' ? 'en hallazgos AML' : 'en la bandeja'}.</p>
+                    <p className={`text-[8px] md:text-[10px] ${s.muted} opacity-70 uppercase tracking-widest mt-2`}>Inicia una búsqueda o ajusta los filtros de fecha.</p>
+                  </div>
+                ) : (viewMode === 'analyzed' ? filteredNews : filteredRawNews).map((item) => (
+                  <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} key={item.id} className={`grid ${viewMode === 'analyzed' ? 'grid-cols-[100px_1.2fr_120px_1fr_1fr_1.5fr_1fr_60px]' : 'grid-cols-[60px_120px_150px_1fr_140px_60px]'} p-4 md:p-7 ${s.rowHover} transition-all group items-center`}>
+                    {viewMode === 'raw' && (
+                      <div className="flex items-center justify-center">
+                        <input type="checkbox" className="w-5 h-5 rounded-lg border-slate-300 bg-white text-blue-600 focus:ring-blue-500" checked={selectedRawIds.includes(item.id)} onChange={() => toggleSelect(item.id)} />
                       </div>
-                      <div className="text-[11px] font-bold text-amber-600 uppercase">{(item as NewsItem).crime}</div>
-                      <div className={`text-[11px] ${s.muted} uppercase pr-6 leading-relaxed line-clamp-2`}>{(item as NewsItem).content}</div>
-                      <div className={`flex items-center gap-2 text-[11px] font-bold ${s.muted} uppercase`}>
-                        <MapPin className="w-3 h-3 opacity-50" /> {(item as NewsItem).department}
-                      </div>
-                      <div>
-                        <span className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase ${
-                          (item as NewsItem).risk === 'ALTO' ? 'bg-red-100 text-red-700 border border-red-200' : 
-                          (item as NewsItem).risk === 'MEDIO' ? 'bg-amber-100 text-amber-700 border border-amber-200' : 
-                          'bg-blue-100 text-blue-700 border border-blue-200'
-                        }`}>{(item as NewsItem).risk}</span>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-[11px] font-bold">
-                        <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase tracking-tighter ${((item as RawNewsItem).source && (item as RawNewsItem).source !== 'FGR') ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200'}`}>
-                          {(item as RawNewsItem).source || 'FGR'}
-                        </span>
-                      </div>
-                      <div className={`font-bold ${s.text} text-[15px] uppercase leading-snug pr-8`}>{(item as RawNewsItem).title}</div>
-                      <div className="flex justify-center">
-                        {(item as RawNewsItem).analyzed ? (
-                          <span className="flex items-center gap-2 text-emerald-600 text-[10px] font-bold bg-emerald-50 px-4 py-1.5 rounded-full border border-emerald-200 uppercase">
-                            <Shield className="w-3.5 h-3.5" /> Procesado
+                    )}
+                    <div className={`text-[10px] md:text-[12px] font-semibold ${s.muted}`}>{item.date}</div>
+                    {viewMode === 'analyzed' ? (
+                      <>
+                        <div className={`font-bold ${s.text} text-[12px] md:text-[14px] uppercase`}>{(item as NewsItem).subject}</div>
+                        <div className="text-[10px] md:text-[11px] font-bold">
+                          <span className={`px-2 py-1 rounded-md text-[8px] md:text-[9px] font-bold uppercase tracking-tighter ${((item as NewsItem).source && (item as NewsItem).source !== 'FGR') ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200'}`}>
+                            {(item as NewsItem).source || 'FGR'}
                           </span>
-                        ) : (
-                          <span className={`${s.muted} text-[10px] font-bold ${s.subtle} px-4 py-1.5 rounded-full border uppercase`}>Pendiente</span>
-                        )}
-                      </div>
-                    </>
-                  )}
-                  <a href={item.url} target="_blank" rel="noopener noreferrer" className={`flex items-center justify-center ${s.muted} hover:text-blue-600 transition-all hover:scale-125`}>
-                    <ExternalLink className="w-5 h-5" />
-                  </a>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+                        </div>
+                        <div className="text-[10px] md:text-[11px] font-bold text-amber-600 uppercase">{(item as NewsItem).crime}</div>
+                        <div className={`text-[10px] md:text-[11px] ${s.muted} uppercase pr-6 leading-relaxed line-clamp-2`}>{(item as NewsItem).content}</div>
+                        <div className={`flex items-center gap-2 text-[10px] md:text-[11px] font-bold ${s.muted} uppercase`}>
+                          <MapPin className="w-3 h-3 opacity-50" /> {(item as NewsItem).department}
+                        </div>
+                        <div>
+                          <span className={`px-2 md:px-3 py-1 rounded-full text-[8px] md:text-[9px] font-bold uppercase ${
+                            (item as NewsItem).risk === 'ALTO' ? 'bg-red-100 text-red-700 border border-red-200' : 
+                            (item as NewsItem).risk === 'MEDIO' ? 'bg-amber-100 text-amber-700 border border-amber-200' : 
+                            'bg-blue-100 text-blue-700 border border-blue-200'
+                          }`}>{(item as NewsItem).risk}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-[10px] md:text-[11px] font-bold">
+                          <span className={`px-2 py-1 rounded-md text-[8px] md:text-[9px] font-bold uppercase tracking-tighter ${((item as RawNewsItem).source && (item as RawNewsItem).source !== 'FGR') ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200'}`}>
+                            {(item as RawNewsItem).source || 'FGR'}
+                          </span>
+                        </div>
+                        <div className={`font-bold ${s.text} text-[12px] md:text-[15px] uppercase leading-snug pr-8`}>{(item as RawNewsItem).title}</div>
+                        <div className="flex justify-center">
+                          {(item as RawNewsItem).analyzed ? (
+                            <span className="flex items-center gap-2 text-emerald-600 text-[9px] md:text-[10px] font-bold bg-emerald-50 px-3 md:px-4 py-1 md:py-1.5 rounded-full border border-emerald-200 uppercase">
+                              <Shield className="w-3 md:w-3.5 h-3 md:h-3.5" /> Procesado
+                            </span>
+                          ) : (
+                            <span className={`${s.muted} text-[9px] md:text-[10px] font-bold ${s.subtle} px-3 md:px-4 py-1 md:py-1.5 rounded-full border uppercase`}>Pendiente</span>
+                          )}
+                        </div>
+                      </>
+                    )}
+                    <a href={item.url} target="_blank" rel="noopener noreferrer" className={`flex items-center justify-center ${s.muted} hover:text-blue-600 transition-all hover:scale-125`}>
+                      <ExternalLink className="w-4 h-4 md:w-5 md:h-5" />
+                    </a>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
 
