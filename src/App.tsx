@@ -70,6 +70,7 @@ export default function App() {
   const [isDemo, setIsDemo] = useState(false);
   const [appMode, setAppMode] = useState<'demo' | 'admin' | 'full' | null>(null);
   const [accessCode, setAccessCode] = useState("");
+  const [userInfo, setUserInfo] = useState({ name: "", email: "", company: "" });
   const [isLocked, setIsLocked] = useState(true);
   const [adminKeyInput, setAdminKeyInput] = useState("");
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
@@ -742,11 +743,19 @@ export default function App() {
     const code = codeToValidate || accessCode;
     if (!code) return;
 
+    // If it's not from URL, we might want to check if user info is filled for tracking
+    // But for URL access, we might skip or ask later. 
+    // Let's assume for manual entry we want the info.
+
     try {
       const res = await fetch("/api/auth/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code })
+        body: JSON.stringify({ 
+          code, 
+          userInfo: userInfo.name ? userInfo : null,
+          deviceId 
+        })
       });
       
       if (res.ok) {
@@ -758,7 +767,7 @@ export default function App() {
         
         if (data.mode === 'admin') {
           setIsAdminAuthenticated(true);
-          setAdminKeyInput(code); // Use the same code if it's the admin one
+          setAdminKeyInput(code);
         }
         
         if (data.mode === 'demo') {
@@ -766,7 +775,6 @@ export default function App() {
         }
 
         showToast(`Acceso concedido: Modo ${data.mode.toUpperCase()}`, "success");
-        // Clean URL
         window.history.replaceState({}, document.title, window.location.pathname);
       } else {
         showToast("Código de acceso inválido", "error");
@@ -1092,20 +1100,45 @@ export default function App() {
           </div>
 
           <div className="space-y-4">
-            <div className="relative">
+            <div className="space-y-3">
+              <input 
+                type="text"
+                placeholder="Nombre Completo"
+                value={userInfo.name}
+                onChange={(e) => setUserInfo({ ...userInfo, name: e.target.value })}
+                className={`w-full px-5 py-3 rounded-xl border ${s.input} focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm`}
+              />
+              <input 
+                type="email"
+                placeholder="Correo Institucional"
+                value={userInfo.email}
+                onChange={(e) => setUserInfo({ ...userInfo, email: e.target.value })}
+                className={`w-full px-5 py-3 rounded-xl border ${s.input} focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm`}
+              />
+              <input 
+                type="text"
+                placeholder="Empresa / Institución"
+                value={userInfo.company}
+                onChange={(e) => setUserInfo({ ...userInfo, company: e.target.value })}
+                className={`w-full px-5 py-3 rounded-xl border ${s.input} focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm`}
+              />
+            </div>
+
+            <div className="relative pt-2">
               <input 
                 type="password"
                 placeholder="Código de Acceso"
                 value={accessCode}
                 onChange={(e) => setAccessCode(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && validateAccessCode()}
-                className={`w-full px-6 py-5 rounded-2xl border ${s.input} focus:ring-2 focus:ring-blue-500 outline-none transition-all text-center font-mono tracking-widest text-lg`}
+                className={`w-full px-6 py-4 rounded-2xl border ${s.input} focus:ring-2 focus:ring-blue-500 outline-none transition-all text-center font-mono tracking-widest text-lg`}
               />
             </div>
             
             <button 
               onClick={() => validateAccessCode()}
-              className={`w-full py-5 rounded-2xl ${s.accent} text-white font-bold uppercase tracking-[0.2em] hover:opacity-90 transition-all shadow-xl shadow-blue-900/10 text-xs`}
+              disabled={!userInfo.name || !accessCode}
+              className={`w-full py-5 rounded-2xl ${s.accent} text-white font-bold uppercase tracking-[0.2em] hover:opacity-90 transition-all shadow-xl shadow-blue-900/10 text-xs disabled:opacity-30 disabled:cursor-not-allowed`}
             >
               Validar Credenciales
             </button>
@@ -1190,19 +1223,30 @@ export default function App() {
               <table className="w-full text-left">
                 <thead>
                   <tr className={`text-[10px] font-bold uppercase tracking-widest ${s.muted} border-b ${s.header}`}>
-                    <th className="px-8 py-4">Cliente / Dispositivo</th>
-                    <th className="px-8 py-4">Fecha Activación</th>
+                    <th className="px-8 py-4">Usuario / Empresa</th>
+                    <th className="px-8 py-4">Correo</th>
+                    <th className="px-8 py-4">Modo</th>
+                    <th className="px-8 py-4">Fecha</th>
                   </tr>
                 </thead>
                 <tbody>
                   {adminStats.length === 0 ? (
                     <tr>
-                      <td colSpan={2} className="px-8 py-10 text-center text-sm text-slate-400">No hay activaciones registradas.</td>
+                      <td colSpan={4} className="px-8 py-10 text-center text-sm text-slate-400">No hay activaciones registradas.</td>
                     </tr>
                   ) : (
                     adminStats.map((stat, i) => (
                       <tr key={i} className={`border-b ${s.header} ${s.rowHover} transition-colors`}>
-                        <td className="px-8 py-5 font-medium">{stat.client_name}</td>
+                        <td className="px-8 py-5">
+                          <div className="font-bold">{stat.client_name}</div>
+                          <div className={`text-[10px] ${s.muted} uppercase`}>{stat.company || 'N/A'}</div>
+                        </td>
+                        <td className="px-8 py-5 text-sm">{stat.email || '-'}</td>
+                        <td className="px-8 py-5">
+                          <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase ${stat.mode === 'admin' ? 'bg-purple-100 text-purple-700' : stat.mode === 'full' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                            {stat.mode}
+                          </span>
+                        </td>
                         <td className="px-8 py-5 text-sm">{new Date(stat.activated_at).toLocaleString()}</td>
                       </tr>
                     ))

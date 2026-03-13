@@ -2,6 +2,8 @@ import express from "express";
 import Database from "better-sqlite3";
 import { GoogleGenAI } from "@google/genai";
 import * as dotenv from "dotenv";
+import path from "path";
+import { createServer as createViteServer } from "vite";
 
 dotenv.config();
 
@@ -50,6 +52,9 @@ if (db) {
     CREATE TABLE IF NOT EXISTS demo_usage (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       client_name TEXT,
+      email TEXT,
+      company TEXT,
+      mode TEXT,
       activated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -178,10 +183,24 @@ app.post("/api/raw-news/reset", (req, res) => {
 });
 
 app.post("/api/auth/validate", (req, res) => {
-  const { code } = req.body;
+  const { code, userInfo, deviceId } = req.body;
   try {
     const row = db.prepare("SELECT mode FROM access_keys WHERE key_value = ?").get(code);
     if (row) {
+      // Record access
+      if (userInfo) {
+        db.prepare("INSERT INTO demo_usage (client_name, email, company, mode) VALUES (?, ?, ?, ?)")
+          .run(userInfo.name || 'Anónimo', userInfo.email || '', userInfo.company || '', row.mode);
+      }
+
+      // Handle demo credits if applicable
+      if (row.mode === 'demo' && deviceId) {
+        const existing = db.prepare("SELECT * FROM demo_limits WHERE device_id = ?").get(deviceId);
+        if (!existing) {
+          db.prepare("INSERT INTO demo_limits (device_id, credits_left) VALUES (?, 15)").run(deviceId);
+        }
+      }
+
       res.json({ success: true, mode: row.mode });
     } else {
       res.status(401).json({ success: false, error: "Código inválido" });
@@ -348,5 +367,27 @@ function parseFGRDate(str: string) {
   const month = meses[monthStr] ?? meses[monthStr.substring(0, 3)];
   return new Date(year, month, day);
 }
+
+async function startServer() {
+  if (process.env.NODE_ENV !== "production") {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.join(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
+
+  app.listen(3000, "0.0.0.0", () => {
+    console.log(`Server running on http://localhost:3000`);
+  });
+}
+
+startServer();
 
 export default app;
