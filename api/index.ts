@@ -98,10 +98,17 @@ function getAI() {
     apiKey = apiKey.trim().replace(/^["']|["']$/g, "");
   }
 
+  const foundKeys = Object.keys(process.env).filter(k => k.includes("KEY") || k.includes("API"));
+
   if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey === "" || apiKey.length < 10) {
     console.error(">>> ERROR: API Key no válida o no configurada.");
-    console.log(">>> Variables de entorno detectadas:", Object.keys(process.env).filter(k => k.includes("KEY") || k.includes("API")));
-    throw new Error("API Key no configurada. Por favor, ve a Settings > Secrets y añade GEMINI_API_KEY con tu llave de Google AI Studio.");
+    console.log(">>> Variables de entorno detectadas:", foundKeys);
+    
+    const errorMsg = `API Key no configurada correctamente. 
+      Detectadas: [${foundKeys.join(", ")}]. 
+      Por favor, ve a Settings > Secrets y añade GEMINI_API_KEY con tu llave de Google AI Studio.`;
+    
+    throw new Error(errorMsg);
   }
 
   const maskedKey = `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}`;
