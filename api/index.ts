@@ -1,6 +1,6 @@
 import express from "express";
 import Database from "better-sqlite3";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import * as dotenv from "dotenv";
 import path from "path";
 import { createServer as createViteServer } from "vite";
@@ -89,12 +89,120 @@ if (db) {
 const app = express();
 app.use(express.json());
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+let aiInstance: GoogleGenAI | null = null;
+function getAI() {
+  if (!aiInstance) {
+    const apiKey = process.env.GEMINI_API_KEY || "";
+    aiInstance = new GoogleGenAI({ apiKey });
+  }
+  return aiInstance;
+}
 
 // API Routes
 app.get("/api/news", (req, res) => {
   const rows = db.prepare("SELECT * FROM news ORDER BY date DESC").all();
   res.json(rows);
+});
+
+app.post("/api/digital-search", async (req, res) => {
+  const { fromDate, toDate } = req.body;
+  
+  try {
+    const ai = getAI();
+    const prompt = `Actúa como un experto en cumplimiento AML y analista de noticias de El Salvador. 
+    Encuentra noticias RECIENTES en periódicos digitales salvadoreños entre el ${fromDate} y el ${toDate}.
+    Busca capturas, procesos judiciales, estafas, lavado de dinero.
+    EXCLUYE noticias de la FGR.
+    Devuelve un JSON con una lista de noticias: title, url, date (YYYY-MM-DD), source.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            news: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  title: { type: Type.STRING },
+                  url: { type: Type.STRING },
+                  date: { type: Type.STRING },
+                  source: { type: Type.STRING }
+                },
+                required: ["title", "url", "date", "source"]
+              }
+            }
+          },
+          required: ["news"]
+        }
+      }
+    });
+
+    res.json(JSON.parse(response.text || '{"news":[]}'));
+  } catch (error: any) {
+    console.error("Error en búsqueda digital backend:", error);
+    res.status(500).json({ error: error.message || "Error interno en la búsqueda" });
+  }
+});
+
+app.post("/api/analyze-news", async (req, res) => {
+  const { text, url } = req.body;
+  
+  try {
+    const ai = getAI();
+    const prompt = `Analiza la siguiente noticia judicial de El Salvador y extrae hallazgos de personas naturales mencionadas como acusadas, procesadas o capturadas.
+    
+    NOTICIA:
+    ${text}
+    
+    URL: ${url}
+    
+    REGLAS:
+    1. Solo extrae personas que sean SUJETOS de la investigación (acusados, capturados, procesados).
+    2. NO extraigas fiscales, jueces, policías o víctimas.
+    3. Para cada persona, determina el nivel de riesgo (ALTO si es lavado de dinero, narcotráfico o corrupción; MEDIO para otros delitos).
+    4. Devuelve un JSON con: isRelevant (boolean), date (YYYY-MM-DD), findings (array de objetos con subject, crime, department, risk, content).`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            isRelevant: { type: Type.BOOLEAN },
+            date: { type: Type.STRING },
+            findings: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  subject: { type: Type.STRING },
+                  crime: { type: Type.STRING },
+                  department: { type: Type.STRING },
+                  risk: { type: Type.STRING, enum: ["ALTO", "MEDIO", "BAJO"] },
+                  content: { type: Type.STRING }
+                },
+                required: ["subject", "crime", "department", "risk"]
+              }
+            }
+          },
+          required: ["isRelevant"]
+        }
+      }
+    });
+
+    res.json(JSON.parse(response.text || '{"isRelevant":false}'));
+  } catch (error: any) {
+    console.error("Error en análisis backend:", error);
+    res.status(500).json({ error: error.message || "Error interno en el análisis" });
+  }
 });
 
 app.get("/api/raw-news", (req, res) => {

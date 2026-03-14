@@ -12,7 +12,6 @@ import {
   Terminal
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -198,72 +197,20 @@ export default function App() {
     const toDate = dateTo || today;
 
     try {
-      console.log("[Digital Search] Iniciando búsqueda...");
-      // Usar gemini-3-flash-preview que no requiere selección manual de clave
-      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || "";
+      console.log("[Digital Search] Llamando al backend...");
       
-      const ai = new GoogleGenAI({ apiKey });
-      
-      const prompt = `Actúa como un experto en cumplimiento AML y analista de noticias de El Salvador. 
-      Tu objetivo es encontrar noticias RECIENTES en los principales periódicos digitales salvadoreños entre el ${fromDate} y el ${toDate}.
-      
-      MISIÓN: Encontrar el mayor número posible de noticias (mínimo 15-20) sobre capturas, procesos judiciales, investigaciones fiscales, condenas o hechos delictivos.
-      
-      REGLA CRÍTICA: EXCLUYE noticias de la Fiscalía General de la República (FGR) o su sitio web oficial, ya que se procesan por separado. Solo busca en periódicos independientes.
-      
-      INSTRUCCIONES DE BÚSQUEDA OBLIGATORIAS:
-      1. Realiza MÚLTIPLES búsquedas en Google para cubrir diferentes medios y temas.
-      2. Medios a cubrir: La Prensa Gráfica (laprensagrafica.com), El Diario de Hoy (elsalvador.com), El Mundo (elmundo.sv), Diario El Salvador (diarioelsalvador.com).
-      3. Temas y palabras clave: "capturas", "estafa", "lavado de dinero", "narcotráfico", "agrupaciones ilícitas", "corrupción", "boletos aéreos falsos", "acusado", "procesado", "condenado".
-      4. Ejemplo de búsquedas efectivas:
-         - "noticias capturas El Salvador marzo 2026"
-         - "site:laprensagrafica.com judicial marzo 2026"
-         - "site:elsalvador.com estafa boletos"
-         - "site:elmundo.sv capturado marzo 2026"
-         - "estafas boletos aéreos El Salvador 2026"
-      
-      REQUISITOS DE SALIDA:
-      1. Devuelve una lista EXTENSA de noticias. No te detengas en 2 o 3.
-      2. Solo devuelve noticias con URL directa y válida. 
-      3. IMPORTANTE: La URL debe ser la URL ORIGINAL del periódico, NO una URL de búsqueda de Google ni una URL de búsqueda interna.
-      4. Si no estás seguro de la URL exacta de una noticia, NO la incluyas.
-      5. El campo "source" DEBE ser el nombre del periódico.
-      6. Devuelve un JSON con una lista de noticias: title, url, date (YYYY-MM-DD), source.`;
-
-      console.log("[Digital Search] Enviando solicitud a Gemini con Google Search...");
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: {
-          tools: [{ googleSearch: {} }],
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              news: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    title: { type: Type.STRING },
-                    url: { type: Type.STRING },
-                    date: { type: Type.STRING },
-                    source: { type: Type.STRING }
-                  },
-                  required: ["title", "url", "date", "source"]
-                }
-              }
-            },
-            required: ["news"]
-          }
-        }
+      const res = await fetch("/api/digital-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fromDate, toDate })
       });
 
-      if (!response.text) {
-        throw new Error("El modelo no devolvió ninguna respuesta de texto.");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Error en la respuesta del servidor");
       }
 
-      const data = JSON.parse(response.text);
+      const data = await res.json();
       const foundNews = (data.news || []).filter((n: any) => {
         return n.url && 
                n.url.startsWith('http') && 
@@ -271,29 +218,14 @@ export default function App() {
                !n.url.includes('google.com/search') &&
                n.url.length > 15;
       });
-      console.log(`[Digital Search] AI encontró ${foundNews.length} noticias válidas.`);
+      console.log(`[Digital Search] Backend encontró ${foundNews.length} noticias válidas.`);
       
-      // Filtrar noticias institucionales de la FGR que no son relevantes para esta sección
-      const filteredNews = foundNews.filter((item: any) => {
-        const lowerTitle = item.title.toLowerCase();
-        const lowerUrl = item.url.toLowerCase();
-        const isFGR = lowerTitle.includes("fgr") || lowerTitle.includes("fiscalía") || lowerUrl.includes("fiscalia.gob.sv");
-        const isInstitutional = lowerTitle.includes("inaugura") || 
-                                lowerTitle.includes("convenio") || 
-                                lowerTitle.includes("firma") || 
-                                lowerTitle.includes("discurso") || 
-                                lowerTitle.includes("comunicado") ||
-                                lowerTitle.includes("institucional");
-        return !(isFGR && isInstitutional) && !lowerUrl.includes("fiscalia.gob.sv");
-      });
-
-      if (filteredNews.length > 0) {
-        setScrapeProgress(`Procesando ${filteredNews.length} noticias encontradas...`);
+      if (foundNews.length > 0) {
+        setScrapeProgress(`Procesando ${foundNews.length} noticias encontradas...`);
         
         let savedCount = 0;
-        // Save to raw_news
-        for (const item of filteredNews) {
-          const res = await fetch("/api/raw-news/save", {
+        for (const item of foundNews) {
+          const saveRes = await fetch("/api/raw-news/save", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -303,14 +235,14 @@ export default function App() {
               source: item.source
             })
           });
-          const result = await res.json();
+          const result = await saveRes.json();
           if (result.success && !result.ignored) {
             savedCount++;
           }
         }
         
         await fetchRawNews();
-        setScrapeProgress(`Se añadieron ${filteredNews.length} noticias a la bandeja (incluyendo duplicados).`);
+        setScrapeProgress(`Se añadieron ${foundNews.length} noticias a la bandeja.`);
       } else {
         setScrapeProgress("No se encontraron noticias relevantes en medios digitales.");
       }
@@ -319,7 +251,6 @@ export default function App() {
     } catch (err: any) {
       console.error("[Digital Search] Error:", err);
       const errorMsg = typeof err === 'string' ? err : (err.message || JSON.stringify(err));
-      
       addErrorLog("Error en búsqueda digital: " + errorMsg);
       showToast(`Error en la búsqueda: ${errorMsg.substring(0, 100)}`, "error");
       setScrapeProgress("Error en la búsqueda digital.");
@@ -338,8 +269,6 @@ export default function App() {
     setScrapeProgress("Analizando URL proporcionada...");
     
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || process.env.GEMINI_API_KEY || "" });
-      
       let textToAnalyze = "";
       let useUrlContext = false;
 
@@ -368,55 +297,18 @@ export default function App() {
       
       const cleanText = textToAnalyze.substring(0, 10000);
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `SISTEMA DE EXTRACCIÓN JUDICIAL - EL SALVADOR (ANÁLISIS MANUAL)
-        
-        URL: ${manualUrl}
-        TEXTO: ${cleanText}
-        
-        MISIÓN:
-        Extraer a TODAS las personas mencionadas en la noticia como acusadas, capturadas, detenidas, procesadas, investigadas o condenadas.
-        Si la noticia NO contiene un hecho delictivo, captura o proceso judicial, devuelve un JSON con "isRelevant": false.
-        
-        REGLAS CRÍTICAS:
-        1. EXTRACCIÓN TOTAL: No omitas a ninguna persona. Si la noticia menciona una lista de 10 personas, extrae las 10.
-        2. IDENTIFICACIÓN: Captura nombres y apellidos. Si solo aparece un alias o nombre parcial, extráelo también.
-        3. DEPARTAMENTOS: El departamento DEBE ser uno de los 14 de El Salvador.
-        4. NO FILTRAR POR DELITO: Extrae a la persona sin importar si el delito es grave o leve.
-        5. RIESGO: 
-           - ALTO: Pandillas, Narcotráfico, Lavado, Corrupción, Homicidio, Extorsión, Estafas Masivas (> $10k).
-           - MEDIO: Cualquier otro delito (Estafa, Hurto, etc.).`,
-        config: {
-          tools: useUrlContext ? [{ urlContext: {} }, { googleSearch: {} }] : undefined,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              isRelevant: { type: Type.BOOLEAN },
-              findings: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    date: { type: Type.STRING },
-                    subject: { type: Type.STRING, description: "Nombre y apellido de la persona o ALIAS. NO usar descripciones genéricas." },
-                    risk: { type: Type.STRING, enum: ["ALTO", "MEDIO", "BAJO"] },
-                    crime: { type: Type.STRING },
-                    department: { type: Type.STRING, description: "Uno de los 14 departamentos de El Salvador en MAYÚSCULAS." },
-                    source: { type: Type.STRING },
-                    content: { type: Type.STRING, description: "Título breve de la noticia" }
-                  },
-                  required: ["subject", "crime", "department", "risk"]
-                }
-              }
-            },
-            required: ["isRelevant"]
-          }
-        }
+      const res = await fetch("/api/analyze-news", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: textToAnalyze || manualUrl, url: manualUrl })
       });
 
-      const result = JSON.parse(response.text || "{}");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Error en el análisis del servidor");
+      }
+
+      const result = await res.json();
       if (result.isRelevant && result.findings && result.findings.length > 0) {
         let savedCount = 0;
         for (const finding of result.findings) {
@@ -451,7 +343,7 @@ export default function App() {
       } else {
         showToast("La noticia no parece contener información judicial relevante.", "error");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       showToast("Error al analizar la URL.", "error");
     } finally {
@@ -485,7 +377,6 @@ export default function App() {
 
     let findingsCount = 0;
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || process.env.GEMINI_API_KEY || "" });
       const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
       // Helper para fetch con timeout
@@ -553,74 +444,15 @@ export default function App() {
 
               const cleanText = textToAnalyze.substring(0, 10000);
 
-              const prompt = `SISTEMA DE EXTRACCIÓN JUDICIAL - EL SALVADOR
-              
-              NOTICIA:
-              Título: ${item.title}
-              URL: ${item.url}
-              Texto/Contexto: ${cleanText}
-              
-              MISIÓN:
-              Extraer a TODAS las personas mencionadas en la noticia que estén vinculadas a un hecho delictivo, captura, proceso judicial, investigación o condena.
-              
-              REGLAS DE ORO (SIN RESTRICCIONES):
-              1. EXTRACCIÓN TOTAL: No omitas a ninguna persona. Si la noticia menciona una lista de 10 o 20 personas, DEBES extraerlas TODAS. No resumas ni agrupes.
-              2. IDENTIFICACIÓN FLEXIBLE: Captura nombres y apellidos completos. Si solo hay un alias (ej: "El Sirra") o un nombre parcial, extráelo también como sujeto.
-              3. SIN FILTRO DE DELITO: No importa el tipo de delito (desde una multa hasta homicidio). Si hay un proceso judicial o captura, extráelo.
-              4. DEPARTAMENTOS: Clasifica en uno de los 14 departamentos de El Salvador. Si no se menciona, usa "SAN SALVADOR" por defecto para procesos nacionales.
-              5. RIESGO: 
-                 - ALTO: Pandillas, Narcotráfico, Lavado, Corrupción, Homicidio, Extorsión.
-                 - MEDIO: Cualquier otro delito (Estafa, Hurto, etc.).
-              
-              DEBES RESPONDER ÚNICAMENTE CON EL SIGUIENTE FORMATO JSON:
-              {
-                "findings": [
-                  {
-                    "subject": "NOMBRE COMPLETO O ALIAS",
-                    "crime": "DELITO DETALLADO",
-                    "department": "DEPARTAMENTO",
-                    "risk": "ALTO" | "MEDIO"
-                  }
-                ]
-              }`;
-
-              // Timeout para la IA también (30s)
-              const aiPromise = ai.models.generateContent({
-                model: "gemini-3-flash-preview",
-                contents: prompt,
-                config: {
-                  tools: useUrlContext ? [{ urlContext: {} }, { googleSearch: {} }] : undefined,
-                  responseMimeType: "application/json",
-                  temperature: 0.1,
-                  responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                      findings: {
-                        type: Type.ARRAY,
-                        items: {
-                          type: Type.OBJECT,
-                          properties: {
-                            subject: { type: Type.STRING, description: "Nombre completo, apellido o ALIAS de la persona vinculada al hecho. EVITA descripciones genéricas como 'Sujetos no identificados' o 'Estafador'." },
-                            crime: { type: Type.STRING },
-                            department: { type: Type.STRING, description: "Uno de los 14 departamentos de El Salvador en MAYÚSCULAS." },
-                            risk: { type: Type.STRING, enum: ["ALTO", "MEDIO"] }
-                          },
-                          required: ["subject", "crime", "department", "risk"]
-                        }
-                      }
-                    },
-                    required: ["findings"]
-                  }
-                }
+              const res = await fetch("/api/analyze-news", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: textToAnalyze || item.title, url: item.url })
               });
 
-              const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error("AI_TIMEOUT")), 60000)
-              );
+              if (!res.ok) throw new Error("Error en el servidor");
 
-              const aiResponse: any = await Promise.race([aiPromise, timeoutPromise]);
-
-              const data = JSON.parse(aiResponse.text || '{"findings": []}');
+              const data = await res.json();
               
               if (data.findings && data.findings.length > 0) {
                 console.log(`[Análisis] ${data.findings.length} hallazgos en ${item.url}`);
