@@ -123,6 +123,15 @@ app.get("/api/news", (req, res) => {
   res.json(rows);
 });
 
+app.get("/api/debug-env", (req, res) => {
+  const keys = Object.keys(process.env).filter(k => k.includes("KEY") || k.includes("API") || k.includes("GEMINI"));
+  res.json({ 
+    detected_keys: keys,
+    node_env: process.env.NODE_ENV,
+    has_gemini_key: !!process.env.GEMINI_API_KEY
+  });
+});
+
 app.post("/api/digital-search", async (req, res) => {
   const { fromDate, toDate } = req.body;
   
