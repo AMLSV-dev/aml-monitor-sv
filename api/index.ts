@@ -89,13 +89,19 @@ if (db) {
 const app = express();
 app.use(express.json());
 
-let aiInstance: GoogleGenAI | null = null;
 function getAI() {
-  if (!aiInstance) {
-    const apiKey = process.env.GEMINI_API_KEY || "";
-    aiInstance = new GoogleGenAI({ apiKey });
+  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+  
+  if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "") {
+    console.error(">>> ERROR: API Key no configurada o es el valor por defecto.");
+    throw new Error("API Key no configurada. Por favor, configúrela en el panel de Secrets como GEMINI_API_KEY.");
   }
-  return aiInstance;
+
+  // Log de diagnóstico seguro (solo muestra longitud y extremos)
+  const maskedKey = `${apiKey.substring(0, 3)}...${apiKey.substring(apiKey.length - 3)}`;
+  console.log(`>>> Inicializando GoogleGenAI con llave: ${maskedKey} (Longitud: ${apiKey.length})`);
+
+  return new GoogleGenAI({ apiKey });
 }
 
 // API Routes
@@ -143,10 +149,16 @@ app.post("/api/digital-search", async (req, res) => {
       }
     });
 
-    res.json(JSON.parse(response.text || '{"news":[]}'));
+    if (!response.text) {
+      throw new Error("El modelo no devolvió resultados.");
+    }
+
+    res.json(JSON.parse(response.text));
   } catch (error: any) {
-    console.error("Error en búsqueda digital backend:", error);
-    res.status(500).json({ error: error.message || "Error interno en la búsqueda" });
+    console.error(">>> Error en búsqueda digital:", error);
+    // Extraer mensaje de error de Google si existe
+    const errorMessage = error.message || "Error desconocido en la búsqueda";
+    res.status(500).json({ error: errorMessage });
   }
 });
 
@@ -198,10 +210,15 @@ app.post("/api/analyze-news", async (req, res) => {
       }
     });
 
-    res.json(JSON.parse(response.text || '{"isRelevant":false}'));
+    if (!response.text) {
+      throw new Error("El modelo no devolvió resultados de análisis.");
+    }
+
+    res.json(JSON.parse(response.text));
   } catch (error: any) {
-    console.error("Error en análisis backend:", error);
-    res.status(500).json({ error: error.message || "Error interno en el análisis" });
+    console.error(">>> Error en análisis backend:", error);
+    const errorMessage = error.message || "Error interno en el análisis";
+    res.status(500).json({ error: errorMessage });
   }
 });
 
