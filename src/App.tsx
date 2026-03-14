@@ -57,7 +57,6 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [scraping, setScraping] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
-  const [hasApiKey, setHasApiKey] = useState(false);
   const [selectedRawIds, setSelectedRawIds] = useState<number[]>([]);
   const [scrapeProgress, setScrapeProgress] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -68,10 +67,10 @@ export default function App() {
   const [modal, setModal] = useState<{ open: boolean; title: string; message: string; onConfirm: () => void } | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isDemo, setIsDemo] = useState(false);
-  const [appMode, setAppMode] = useState<'demo' | 'admin' | 'full' | null>(null);
+  const [appMode, setAppMode] = useState<'demo' | 'admin' | 'full' | null>('full');
   const [accessCode, setAccessCode] = useState("");
   const [userInfo, setUserInfo] = useState({ name: "", email: "", company: "" });
-  const [isLocked, setIsLocked] = useState(true);
+  const [isLocked, setIsLocked] = useState(false);
   const [adminKeyInput, setAdminKeyInput] = useState("");
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [adminStats, setAdminStats] = useState<any[]>([]);
@@ -191,25 +190,6 @@ export default function App() {
   };
 
   const startDigitalSearch = async () => {
-    // Verificar si se requiere una clave de API para herramientas avanzadas (Google Search)
-    if (window.aistudio) {
-      const hasKey = await window.aistudio.hasSelectedApiKey();
-      if (!hasKey) {
-        setModal({
-          open: true,
-          title: "Clave de API Requerida",
-          message: "La búsqueda en medios digitales utiliza Google Search, lo cual requiere una clave de API de un proyecto con facturación habilitada. ¿Deseas seleccionar una clave ahora?",
-          onConfirm: async () => {
-            setModal(null);
-            await window.aistudio?.openSelectKey();
-            // Después de abrir el diálogo, intentamos proceder
-            startDigitalSearch();
-          }
-        });
-        return;
-      }
-    }
-
     setScraping(true);
     setScrapeProgress("Buscando en medios digitales de El Salvador...");
     
@@ -219,10 +199,8 @@ export default function App() {
 
     try {
       console.log("[Digital Search] Iniciando búsqueda...");
-      // Usar gemini-3.1-flash-image-preview para mejor soporte de búsqueda
-      // Priorizar process.env.API_KEY que es la inyectada por el selector de claves
-      const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY || "";
-      console.log("[Digital Search] Usando API Key (primeros 4 chars):", apiKey.substring(0, 4));
+      // Usar gemini-3-flash-preview que no requiere selección manual de clave
+      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || "";
       
       const ai = new GoogleGenAI({ apiKey });
       
@@ -254,7 +232,7 @@ export default function App() {
 
       console.log("[Digital Search] Enviando solicitud a Gemini con Google Search...");
       const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-image-preview",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
           tools: [{ googleSearch: {} }],
@@ -275,7 +253,8 @@ export default function App() {
                   required: ["title", "url", "date", "source"]
                 }
               }
-            }
+            },
+            required: ["news"]
           }
         }
       });
@@ -341,38 +320,9 @@ export default function App() {
       console.error("[Digital Search] Error:", err);
       const errorMsg = typeof err === 'string' ? err : (err.message || JSON.stringify(err));
       
-      // Si el error indica que la clave no es válida o no tiene permisos, forzamos el diálogo
-      if (errorMsg.includes("API key not valid") || errorMsg.includes("Requested entity was not found") || errorMsg.includes("400") || errorMsg.includes("API_KEY_INVALID")) {
-        setModal({
-          open: true,
-          title: "Error de Clave de API",
-          message: "La clave de API actual no es válida para realizar búsquedas web. Esto sucede si la clave no pertenece a un proyecto con facturación habilitada. ¿Deseas seleccionar una clave diferente?",
-          onConfirm: async () => {
-            console.log("[Digital Search] Botón confirmar presionado");
-            if (window.aistudio) {
-              try {
-                console.log("[Digital Search] Intentando abrir selector de claves...");
-                await window.aistudio.openSelectKey();
-                console.log("[Digital Search] Selector de claves abierto exitosamente");
-                setModal(null);
-              } catch (err) {
-                console.error("[Digital Search] Error al abrir selector:", err);
-                showToast("Error al abrir el selector de claves", "error");
-                setModal(null);
-              }
-            } else {
-              console.error("[Digital Search] window.aistudio no está disponible");
-              addErrorLog("Error: El selector de claves no está disponible en este entorno.");
-              showToast("Error: No se puede abrir el selector de claves.", "error");
-              setModal(null);
-            }
-          }
-        });
-        setScrapeProgress("Error de clave de API.");
-      } else {
-        addErrorLog("Error en búsqueda digital: " + errorMsg);
-        setScrapeProgress("Error en la búsqueda digital.");
-      }
+      addErrorLog("Error en búsqueda digital: " + errorMsg);
+      showToast(`Error en la búsqueda: ${errorMsg.substring(0, 100)}`, "error");
+      setScrapeProgress("Error en la búsqueda digital.");
     } finally {
       setScraping(false);
     }
@@ -764,7 +714,6 @@ export default function App() {
   useEffect(() => {
     fetchNews();
     fetchRawNews();
-    checkApiKey();
     
     // Initialize or retrieve Device ID
     let dId = localStorage.getItem('aml_device_id');
@@ -949,9 +898,10 @@ export default function App() {
     });
   };
 
-  const fetchAdminStats = async () => {
+  const fetchAdminStats = async (key?: string) => {
+    const k = key || adminKeyInput;
     try {
-      const res = await fetch(`/api/admin/stats?key=${adminKeyInput}`);
+      const res = await fetch(`/api/admin/stats?key=${k}`);
       if (res.ok) {
         const data = await res.json();
         setAdminStats(data);
@@ -981,20 +931,6 @@ export default function App() {
       });
     } catch (e) {
       console.error("Error updating demo usage:", e);
-    }
-  };
-
-  const checkApiKey = async () => {
-    if (window.aistudio?.hasSelectedApiKey) {
-      const selected = await window.aistudio.hasSelectedApiKey();
-      setHasApiKey(selected);
-    }
-  };
-
-  const handleOpenKey = async () => {
-    if (window.aistudio?.openSelectKey) {
-      await window.aistudio.openSelectKey();
-      setHasApiKey(true);
     }
   };
 
@@ -1296,6 +1232,18 @@ export default function App() {
             </div>
             <div className="flex flex-wrap gap-4">
               <button 
+                onClick={activateDemo}
+                className="px-6 py-3 rounded-xl border border-emerald-200 text-emerald-600 font-bold text-xs uppercase tracking-widest hover:bg-emerald-50 transition-all"
+              >
+                Activar Demo
+              </button>
+              <button 
+                onClick={() => setIsErrorModalOpen(true)}
+                className="px-6 py-3 rounded-xl border border-amber-200 text-amber-600 font-bold text-xs uppercase tracking-widest hover:bg-amber-50 transition-all"
+              >
+                Ver Logs
+              </button>
+              <button 
                 onClick={resetDemos}
                 className="px-6 py-3 rounded-xl border border-blue-200 text-blue-600 font-bold text-xs uppercase tracking-widest hover:bg-blue-50 transition-all"
               >
@@ -1504,19 +1452,34 @@ export default function App() {
             MANUAL
           </button>
 
-          <button 
-            onClick={async () => {
-              if (window.aistudio) {
-                await window.aistudio.openSelectKey();
-              } else {
-                showToast("Selector de claves no disponible", "error");
-              }
-            }}
-            className={`flex items-center gap-2 md:gap-3 px-4 md:px-7 py-2.5 md:py-3.5 rounded-xl md:rounded-2xl border ${s.card} ${s.text} hover:bg-slate-50 hover:text-slate-900 text-[10px] md:text-[12px] font-bold uppercase tracking-widest transition-all shadow-sm`}
-          >
-            <Database className="w-3.5 h-3.5 md:w-4 h-4" />
-            API KEY
-          </button>
+          {isAdminAuthenticated ? (
+            <button 
+              onClick={() => setAppMode(appMode === 'admin' ? 'full' : 'admin')}
+              className={`flex items-center gap-2 md:gap-3 px-4 md:px-7 py-2.5 md:py-3.5 rounded-xl md:rounded-2xl border ${s.card} ${s.text} hover:bg-slate-50 hover:text-slate-900 text-[10px] md:text-[12px] font-bold uppercase tracking-widest transition-all shadow-sm`}
+            >
+              <Terminal className="w-3.5 h-3.5 md:w-4 h-4" />
+              {appMode === 'admin' ? 'VOLVER' : 'ADMIN'}
+            </button>
+          ) : (
+            <button 
+              onClick={() => {
+                const code = prompt("Ingresa código de administrador:");
+                if (code === 'admin99') {
+                  setIsAdminAuthenticated(true);
+                  setAppMode('admin');
+                  setAdminKeyInput(code);
+                  fetchAdminStats(code);
+                  showToast("Acceso Administrador concedido", "success");
+                } else if (code) {
+                  showToast("Código incorrecto", "error");
+                }
+              }}
+              className={`flex items-center gap-2 md:gap-3 px-4 md:px-7 py-2.5 md:py-3.5 rounded-xl md:rounded-2xl border ${s.card} ${s.text} hover:bg-slate-50 hover:text-slate-900 text-[10px] md:text-[12px] font-bold uppercase tracking-widest transition-all shadow-sm`}
+            >
+              <Shield className="w-3.5 h-3.5 md:w-4 h-4" />
+              ADMIN
+            </button>
+          )}
 
           <button 
             onClick={handleLogout}
