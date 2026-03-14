@@ -90,29 +90,45 @@ const app = express();
 app.use(express.json());
 
 function getAI() {
-  // Intentar obtener la llave de varias fuentes comunes
-  let apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.GOOGLE_API_KEY;
-  
-  // Limpiar la llave de posibles comillas o espacios accidentales
-  if (apiKey) {
-    apiKey = apiKey.trim().replace(/^["']|["']$/g, "");
+  const keysToTry = [
+    'GEMINI_API_KEY',
+    'API_KEY',
+    'GOOGLE_API_KEY',
+    'NEXT_PUBLIC_GEMINI_API_KEY'
+  ];
+
+  let apiKey = "";
+  let foundKeyName = "";
+
+  for (const keyName of keysToTry) {
+    const val = process.env[keyName];
+    if (val && val !== "MY_GEMINI_API_KEY" && val.trim() !== "" && val.length >= 10) {
+      apiKey = val.trim().replace(/^["']|["']$/g, "");
+      foundKeyName = keyName;
+      break;
+    }
   }
 
-  const foundKeys = Object.keys(process.env).filter(k => k.includes("KEY") || k.includes("API"));
+  const foundKeys = Object.keys(process.env).filter(k => k.includes("KEY") || k.includes("API") || k.includes("GEMINI"));
 
-  if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey === "" || apiKey.length < 10) {
+  if (!apiKey) {
     console.error(">>> ERROR: API Key no válida o no configurada.");
-    console.log(">>> Variables de entorno detectadas:", foundKeys);
     
-    const errorMsg = `API Key no configurada correctamente. 
-      Detectadas: [${foundKeys.join(", ")}]. 
-      Por favor, ve a Settings > Secrets y añade GEMINI_API_KEY con tu llave de Google AI Studio.`;
+    const currentVal = process.env.GEMINI_API_KEY || process.env.API_KEY || "";
+    let detail = "No se encontró ninguna llave válida.";
+    if (currentVal === "MY_GEMINI_API_KEY") {
+      detail = "La llave tiene el valor por defecto ('MY_GEMINI_API_KEY'). Debes cambiarlo por tu llave real en Settings > Secrets.";
+    }
+
+    const errorMsg = `Error de Configuración: ${detail}
+      Variables detectadas en el entorno: [${foundKeys.join(", ")}].
+      Instrucciones: Haz clic en el icono de engranaje (Settings) en la esquina superior derecha de AI Studio, ve a la pestaña 'Secrets' y añade/edita 'GEMINI_API_KEY'.`;
     
     throw new Error(errorMsg);
   }
 
   const maskedKey = `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}`;
-  console.log(`>>> Usando API Key: ${maskedKey} (Longitud: ${apiKey.length})`);
+  console.log(`>>> Usando API Key de ${foundKeyName}: ${maskedKey} (Longitud: ${apiKey.length})`);
 
   return new GoogleGenAI({ apiKey });
 }
@@ -319,6 +335,15 @@ app.post("/api/news/save", (req, res) => {
 app.post("/api/news/reset", (req, res) => {
   try {
     db.prepare("DELETE FROM news").run();
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/raw-news/reset-status", (req, res) => {
+  try {
+    db.prepare("UPDATE raw_news SET analyzed = 0").run();
     res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

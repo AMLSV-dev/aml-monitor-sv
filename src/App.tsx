@@ -450,7 +450,17 @@ export default function App() {
                 body: JSON.stringify({ text: textToAnalyze || item.title, url: item.url })
               });
 
-              if (!res.ok) throw new Error("Error en el servidor");
+              if (!res.ok) {
+                const errorData = await res.json();
+                const errorMsg = errorData.error || "Error en el servidor";
+                
+                if (errorMsg.includes("API Key") || errorMsg.includes("Configuración")) {
+                  stopSignal.current = true;
+                  addErrorLog("ERROR CRÍTICO: " + errorMsg);
+                  throw new Error("STOP_LOOP_API_KEY");
+                }
+                throw new Error(errorMsg);
+              }
 
               const data = await res.json();
               
@@ -485,6 +495,8 @@ export default function App() {
                     findingsCount++;
                   }
                 }
+              } else {
+                console.log(`[Análisis] No se encontraron hallazgos relevantes en ${item.url}`);
               }
               
               await fetch("/api/raw-news/mark-analyzed", {
@@ -497,19 +509,23 @@ export default function App() {
 
               success = true;
             } catch (error: any) {
+              if (error.message === "STOP_LOOP_API_KEY") throw error;
+
               console.error(`[Análisis] Error en ${item.url} (Intento ${retryCount}):`, error);
+              
               if (error.message === "AI_TIMEOUT" || error.name === "AbortError") {
                 console.warn(`[Análisis] Timeout en ${item.url}`);
               }
+              
               if (error.message?.includes("429") || error.status === 429) {
                 const waitTime = Math.pow(2, retryCount + 1) * 2000;
                 await delay(waitTime);
               }
+              
               retryCount++;
               if (retryCount > maxRetries) {
-                // Si fallan todos los reintentos, marcamos como analizado para no trabar la cola
-                // o simplemente dejamos que success sea false y el batch termine.
-                // Aquí optamos por marcarlo para que el usuario no se quede con noticias "fantasma" que siempre fallan
+                addErrorLog(`No se pudo analizar: ${item.title}. Error: ${error.message}`);
+                // Solo marcamos como analizado si NO es un error de API Key (que ya manejamos arriba)
                 await fetch("/api/raw-news/mark-analyzed", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
@@ -1080,6 +1096,16 @@ export default function App() {
                 className="px-6 py-3 rounded-xl border border-blue-200 text-blue-600 font-bold text-xs uppercase tracking-widest hover:bg-blue-50 transition-all"
               >
                 Reset Demos
+              </button>
+              <button 
+                onClick={async () => {
+                  await fetch("/api/raw-news/reset-status", { method: "POST" });
+                  await fetchRawNews();
+                  showToast("Estado de análisis reiniciado", "success");
+                }}
+                className="px-6 py-3 rounded-xl border border-amber-200 text-amber-600 font-bold text-xs uppercase tracking-widest hover:bg-amber-50 transition-all"
+              >
+                Reintentar Análisis
               </button>
               <button 
                 onClick={() => {
