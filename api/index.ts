@@ -1,6 +1,5 @@
 import express from "express";
 import Database from "better-sqlite3";
-import { GoogleGenAI, Type } from "@google/genai";
 import * as dotenv from "dotenv";
 import path from "path";
 import { createServer as createViteServer } from "vite";
@@ -89,50 +88,6 @@ if (db) {
 const app = express();
 app.use(express.json());
 
-function getAI() {
-  const keysToTry = [
-    'GEMINI_API_KEY',
-    'API_KEY',
-    'GOOGLE_API_KEY',
-    'NEXT_PUBLIC_GEMINI_API_KEY'
-  ];
-
-  let apiKey = "";
-  let foundKeyName = "";
-
-  for (const keyName of keysToTry) {
-    const val = process.env[keyName];
-    if (val && val !== "MY_GEMINI_API_KEY" && val.trim() !== "" && val.length >= 10) {
-      apiKey = val.trim().replace(/^["']|["']$/g, "");
-      foundKeyName = keyName;
-      break;
-    }
-  }
-
-  const foundKeys = Object.keys(process.env).filter(k => k.includes("KEY") || k.includes("API") || k.includes("GEMINI"));
-
-  if (!apiKey) {
-    console.error(">>> ERROR: API Key no válida o no configurada.");
-    
-    const currentVal = process.env.GEMINI_API_KEY || process.env.API_KEY || "";
-    let detail = "No se encontró ninguna llave válida.";
-    if (currentVal === "MY_GEMINI_API_KEY") {
-      detail = "La llave tiene el valor por defecto ('MY_GEMINI_API_KEY'). Debes cambiarlo por tu llave real en Settings > Secrets.";
-    }
-
-    const errorMsg = `Error de Configuración: ${detail}
-      Variables detectadas en el entorno: [${foundKeys.join(", ")}].
-      Instrucciones: Haz clic en el icono de engranaje (Settings) en la esquina superior derecha de AI Studio, ve a la pestaña 'Secrets' y añade/edita 'GEMINI_API_KEY'.`;
-    
-    throw new Error(errorMsg);
-  }
-
-  const maskedKey = `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}`;
-  console.log(`>>> Usando API Key de ${foundKeyName}: ${maskedKey} (Longitud: ${apiKey.length})`);
-
-  return new GoogleGenAI({ apiKey });
-}
-
 // API Routes
 app.get("/api/news", (req, res) => {
   const rows = db.prepare("SELECT * FROM news ORDER BY date DESC").all();
@@ -153,118 +108,6 @@ app.get("/api/debug-env", (req, res) => {
     gemini_key_length: geminiKey.length,
     next_public_key_length: nextPublicGeminiKey.length
   });
-});
-
-app.post("/api/digital-search", async (req, res) => {
-  const { fromDate, toDate } = req.body;
-  
-  try {
-    const ai = getAI();
-    const prompt = `Actúa como un experto en cumplimiento AML y analista de noticias de El Salvador. 
-    Encuentra noticias RECIENTES en periódicos digitales salvadoreños entre el ${fromDate} y el ${toDate}.
-    Busca capturas, procesos judiciales, estafas, lavado de dinero.
-    EXCLUYE noticias de la FGR.
-    Devuelve un JSON con una lista de noticias: title, url, date (YYYY-MM-DD), source.`;
-
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
-      config: {
-        tools: [{ googleSearch: {} }],
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            news: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  title: { type: Type.STRING },
-                  url: { type: Type.STRING },
-                  date: { type: Type.STRING },
-                  source: { type: Type.STRING }
-                },
-                required: ["title", "url", "date", "source"]
-              }
-            }
-          },
-          required: ["news"]
-        }
-      }
-    });
-
-    if (!response.text) {
-      throw new Error("El modelo no devolvió resultados.");
-    }
-
-    res.json(JSON.parse(response.text));
-  } catch (error: any) {
-    console.error(">>> Error en búsqueda digital:", error);
-    // Extraer mensaje de error de Google si existe
-    const errorMessage = error.message || "Error desconocido en la búsqueda";
-    res.status(500).json({ error: errorMessage });
-  }
-});
-
-app.post("/api/analyze-news", async (req, res) => {
-  const { text, url } = req.body;
-  
-  try {
-    const ai = getAI();
-    const prompt = `Analiza la siguiente noticia judicial de El Salvador y extrae hallazgos de personas naturales mencionadas como acusadas, procesadas o capturadas.
-    
-    NOTICIA:
-    ${text}
-    
-    URL: ${url}
-    
-    REGLAS:
-    1. Solo extrae personas que sean SUJETOS de la investigación (acusados, capturados, procesados).
-    2. NO extraigas fiscales, jueces, policías o víctimas.
-    3. Para cada persona, determina el nivel de riesgo (ALTO si es lavado de dinero, narcotráfico o corrupción; MEDIO para otros delitos).
-    4. Devuelve un JSON con: isRelevant (boolean), date (YYYY-MM-DD), findings (array de objetos con subject, crime, department, risk, content).`;
-
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            isRelevant: { type: Type.BOOLEAN },
-            date: { type: Type.STRING },
-            findings: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  subject: { type: Type.STRING },
-                  crime: { type: Type.STRING },
-                  department: { type: Type.STRING },
-                  risk: { type: Type.STRING, enum: ["ALTO", "MEDIO", "BAJO"] },
-                  content: { type: Type.STRING }
-                },
-                required: ["subject", "crime", "department", "risk"]
-              }
-            }
-          },
-          required: ["isRelevant"]
-        }
-      }
-    });
-
-    if (!response.text) {
-      throw new Error("El modelo no devolvió resultados de análisis.");
-    }
-
-    res.json(JSON.parse(response.text));
-  } catch (error: any) {
-    console.error(">>> Error en análisis backend:", error);
-    const errorMessage = error.message || "Error interno en el análisis";
-    res.status(500).json({ error: errorMessage });
-  }
 });
 
 app.get("/api/raw-news", (req, res) => {
