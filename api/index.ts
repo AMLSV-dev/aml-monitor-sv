@@ -141,10 +141,17 @@ app.get("/api/news", (req, res) => {
 
 app.get("/api/debug-env", (req, res) => {
   const keys = Object.keys(process.env).filter(k => k.includes("KEY") || k.includes("API") || k.includes("GEMINI"));
+  
+  const geminiKey = process.env.GEMINI_API_KEY || "";
+  const nextPublicGeminiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
+  
   res.json({ 
     detected_keys: keys,
     node_env: process.env.NODE_ENV,
-    has_gemini_key: !!process.env.GEMINI_API_KEY
+    gemini_key_status: geminiKey === "MY_GEMINI_API_KEY" ? "placeholder" : (geminiKey.length > 0 ? "configured" : "missing"),
+    next_public_key_status: nextPublicGeminiKey === "MY_GEMINI_API_KEY" ? "placeholder" : (nextPublicGeminiKey.length > 0 ? "configured" : "missing"),
+    gemini_key_length: geminiKey.length,
+    next_public_key_length: nextPublicGeminiKey.length
   });
 });
 

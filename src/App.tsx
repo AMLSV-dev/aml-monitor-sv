@@ -76,6 +76,7 @@ export default function App() {
   const [demoResultsLeft, setDemoResultsLeft] = useState(15);
   const [demoExpiry, setDemoExpiry] = useState<string | null>(null);
   const [deviceId, setDeviceId] = useState<string>("");
+  const [apiConfigStatus, setApiConfigStatus] = useState<{ status: 'ok' | 'error' | 'loading', message?: string }>({ status: 'loading' });
   const [isManualOpen, setIsManualOpen] = useState(false);
   const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
   const [errorLog, setErrorLog] = useState<string[]>([]);
@@ -560,6 +561,23 @@ export default function App() {
   };
 
   useEffect(() => {
+    const checkApiStatus = async () => {
+      try {
+        const res = await fetch("/api/debug-env");
+        const data = await res.json();
+        if (data.gemini_key_status === "placeholder" || data.gemini_key_status === "missing") {
+          setApiConfigStatus({ 
+            status: 'error', 
+            message: "La API Key de Gemini no está configurada correctamente. Por favor, ve a 'Settings > Secrets' y añade tu clave real en 'GEMINI_API_KEY'." 
+          });
+        } else {
+          setApiConfigStatus({ status: 'ok' });
+        }
+      } catch (e) {
+        setApiConfigStatus({ status: 'ok' }); // Fallback if debug endpoint fails
+      }
+    };
+    checkApiStatus();
     fetchNews();
     fetchRawNews();
     
@@ -1217,6 +1235,24 @@ export default function App() {
       />
 
       <AnimatePresence>
+        {apiConfigStatus.status === 'error' && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-amber-500 text-white px-4 py-3 text-[11px] font-bold uppercase tracking-widest flex flex-col md:flex-row items-center justify-center gap-2 md:gap-6 sticky top-0 z-[60] shadow-lg border-b border-amber-600"
+          >
+            <div className="flex items-center gap-2">
+              <Terminal className="w-4 h-4" />
+              <span>{apiConfigStatus.message}</span>
+            </div>
+            <button 
+              onClick={() => window.location.reload()}
+              className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg transition-all"
+            >
+              Reintentar
+            </button>
+          </motion.div>
+        )}
         {isDemo && (
           <motion.div 
             initial={{ y: -50 }}
@@ -1623,6 +1659,27 @@ export default function App() {
         <div className="mt-20 flex flex-col md:flex-row justify-between items-center gap-8 border-t border-slate-200 pt-12">
           <div className={`text-[11px] font-bold ${s.muted} uppercase tracking-[0.3em]`}>
             Para soporte o licencias: <a href="mailto:monitoreo.aml.elsalvador@gmail.com" className="text-blue-500 hover:underline">monitoreo.aml.elsalvador@gmail.com</a>
+          </div>
+          <div className="flex gap-6">
+            <button 
+              onClick={async () => {
+                try {
+                  const res = await fetch("/api/debug-env");
+                  const data = await res.json();
+                  setModal({
+                    open: true,
+                    title: "Estado de Configuración API",
+                    message: `GEMINI_API_KEY: ${data.gemini_key_status} (${data.gemini_key_length} chars). NEXT_PUBLIC_GEMINI_API_KEY: ${data.next_public_key_status} (${data.next_public_key_length} chars). Si el estado es 'placeholder', significa que la llave tiene el valor 'MY_GEMINI_API_KEY'. Debes cambiarlo en el panel de 'Settings > Secrets' de AI Studio.`,
+                    onConfirm: () => setModal(null)
+                  });
+                } catch (e) {
+                  showToast("Error al obtener estado de API", "error");
+                }
+              }}
+              className={`text-[11px] font-bold ${s.muted} hover:text-blue-500 uppercase tracking-[0.3em] transition-colors`}
+            >
+              Debug API
+            </button>
           </div>
           <div className={`text-[11px] font-bold ${s.muted} uppercase tracking-[0.5em] text-center md:text-right`}>
             Cumplimiento SV © 2026
