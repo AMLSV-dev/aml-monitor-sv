@@ -27,7 +27,6 @@ declare global {
 
 import { ManualModal } from './components/ManualModal';
 import { ErrorLogModal } from './components/ErrorLogModal';
-import { analyzeNewsContent, searchDigitalMedia } from "./services/geminiService";
 
 interface NewsItem {
   id: number;
@@ -199,9 +198,20 @@ export default function App() {
     const toDate = dateTo || today;
 
     try {
-      console.log("[Digital Search] Llamando a Gemini desde el frontend...");
+      console.log("[Digital Search] Llamando al backend...");
       
-      const data = await searchDigitalMedia(fromDate, toDate);
+      const res = await fetch("/api/digital-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fromDate, toDate })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Error en la respuesta del servidor");
+      }
+
+      const data = await res.json();
       const foundNews = (data.news || []).filter((n: any) => {
         return n.url && 
                n.url.startsWith('http') && 
@@ -288,8 +298,18 @@ export default function App() {
       
       const cleanText = textToAnalyze.substring(0, 10000);
 
-      const result = await analyzeNewsContent(textToAnalyze || manualUrl, manualUrl);
-      
+      const res = await fetch("/api/analyze-news", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: textToAnalyze || manualUrl, url: manualUrl })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Error en el análisis del servidor");
+      }
+
+      const result = await res.json();
       if (result.isRelevant && result.findings && result.findings.length > 0) {
         let savedCount = 0;
         for (const finding of result.findings) {
@@ -425,7 +445,25 @@ export default function App() {
 
               const cleanText = textToAnalyze.substring(0, 10000);
 
-              const data = await analyzeNewsContent(textToAnalyze || item.title, item.url);
+              const res = await fetch("/api/analyze-news", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: textToAnalyze || item.title, url: item.url })
+              });
+
+              if (!res.ok) {
+                const errorData = await res.json();
+                const errorMsg = errorData.error || "Error en el servidor";
+                
+                if (errorMsg.includes("API Key") || errorMsg.includes("Configuración")) {
+                  stopSignal.current = true;
+                  addErrorLog("ERROR CRÍTICO: " + errorMsg);
+                  throw new Error("STOP_LOOP_API_KEY");
+                }
+                throw new Error(errorMsg);
+              }
+
+              const data = await res.json();
               
               if (data.findings && data.findings.length > 0) {
                 console.log(`[Análisis] ${data.findings.length} hallazgos en ${item.url}`);
@@ -523,31 +561,6 @@ export default function App() {
   };
 
   useEffect(() => {
-    const checkApiStatus = async () => {
-      // Check frontend environment directly
-      const frontendKey = process.env.GEMINI_API_KEY || "";
-      if (!frontendKey || frontendKey === "MY_GEMINI_API_KEY") {
-        setApiConfigStatus({ 
-          status: 'error', 
-          message: "La API Key de Gemini no está configurada correctamente en el frontend. Por favor, ve a 'Settings > Secrets' y añade tu clave real en 'GEMINI_API_KEY'." 
-        });
-        return;
-      }
-
-      try {
-        const res = await fetch("/api/debug-env");
-        const data = await res.json();
-        if (data.gemini_key_status === "placeholder" || data.gemini_key_status === "missing") {
-          // Even if frontend has it, backend might not (though it shouldn't matter now)
-          // But it's a good indicator of environment health
-          console.warn("Backend reports API key is missing or placeholder.");
-        }
-        setApiConfigStatus({ status: 'ok' });
-      } catch (e) {
-        setApiConfigStatus({ status: 'ok' }); 
-      }
-    };
-    checkApiStatus();
     fetchNews();
     fetchRawNews();
     
@@ -1205,24 +1218,6 @@ export default function App() {
       />
 
       <AnimatePresence>
-        {apiConfigStatus.status === 'error' && (
-          <motion.div 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-amber-500 text-white px-4 py-3 text-[11px] font-bold uppercase tracking-widest flex flex-col md:flex-row items-center justify-center gap-2 md:gap-6 sticky top-0 z-[60] shadow-lg border-b border-amber-600"
-          >
-            <div className="flex items-center gap-2">
-              <Terminal className="w-4 h-4" />
-              <span>{apiConfigStatus.message}</span>
-            </div>
-            <button 
-              onClick={() => window.location.reload()}
-              className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg transition-all"
-            >
-              Reintentar
-            </button>
-          </motion.div>
-        )}
         {isDemo && (
           <motion.div 
             initial={{ y: -50 }}
@@ -1636,13 +1631,10 @@ export default function App() {
                 try {
                   const res = await fetch("/api/debug-env");
                   const data = await res.json();
-                  const frontendKey = process.env.GEMINI_API_KEY || "";
-                  const frontendStatus = frontendKey === "MY_GEMINI_API_KEY" ? "placeholder" : (frontendKey.length > 0 ? "configured" : "missing");
-                  
                   setModal({
                     open: true,
                     title: "Estado de Configuración API",
-                    message: `FRONTEND_GEMINI_API_KEY: ${frontendStatus} (${frontendKey.length} chars). BACKEND_GEMINI_API_KEY: ${data.gemini_key_status} (${data.gemini_key_length} chars). Si el estado es 'placeholder', significa que la llave tiene el valor 'MY_GEMINI_API_KEY'. Debes cambiarlo en el panel de 'Settings > Secrets' de AI Studio.`,
+                    message: `Estado: ${data.gemini_key_status} (Longitud: ${data.gemini_key_length}). Variables detectadas: [${data.detected_keys.join(", ")}]. Si el estado es 'placeholder', significa que la llave tiene el valor 'MY_GEMINI_API_KEY'. Debes cambiarlo en el panel de 'Settings > Secrets' de AI Studio.`,
                     onConfirm: () => setModal(null)
                   });
                 } catch (e) {

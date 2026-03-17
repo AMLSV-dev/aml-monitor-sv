@@ -1,5 +1,6 @@
 import express from "express";
 import Database from "better-sqlite3";
+import { GoogleGenAI, Type } from "@google/genai";
 import * as dotenv from "dotenv";
 import path from "path";
 import { createServer as createViteServer } from "vite";
@@ -88,25 +89,123 @@ if (db) {
 const app = express();
 app.use(express.json());
 
+function getAI() {
+  // Try all common environment variable names for the API key
+  const apiKey = process.env.GEMINI_API_KEY || 
+                 process.env.API_KEY || 
+                 process.env.GOOGLE_API_KEY || 
+                 process.env.NEXT_PUBLIC_GEMINI_API_KEY || 
+                 "";
+  
+  if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
+    console.error(">>> ERROR: No se encontró una API Key válida en el entorno.");
+    throw new Error("API Key no configurada. Verifica tus Secrets en AI Studio.");
+  }
+
+  return new GoogleGenAI({ apiKey });
+}
+
 // API Routes
 app.get("/api/news", (req, res) => {
   const rows = db.prepare("SELECT * FROM news ORDER BY date DESC").all();
   res.json(rows);
 });
 
+app.post("/api/digital-search", async (req, res) => {
+  const { fromDate, toDate } = req.body;
+  
+  try {
+    const ai = getAI();
+    const prompt = `Busca noticias judiciales en El Salvador entre ${fromDate} y ${toDate}. 
+    Encuentra capturas, procesos por lavado de dinero, estafas o narcotráfico.
+    Devuelve un JSON con este formato: {"news": [{"title": "...", "url": "...", "date": "YYYY-MM-DD", "source": "..."}]}`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json"
+      }
+    });
+
+    res.json(JSON.parse(response.text || '{"news": []}'));
+  } catch (error: any) {
+    console.error("Error Search:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/analyze-news", async (req, res) => {
+  const { text, url } = req.body;
+  
+  try {
+    const ai = getAI();
+    const prompt = `Analiza esta noticia de El Salvador y extrae personas acusadas/procesadas.
+    Noticia: ${text}
+    URL: ${url}
+    
+    Responde ÚNICAMENTE en este formato JSON:
+    {
+      "isRelevant": true/false,
+      "date": "YYYY-MM-DD",
+      "findings": [
+        {
+          "subject": "NOMBRE COMPLETO",
+          "crime": "DELITO",
+          "department": "DEPARTAMENTO",
+          "risk": "ALTO/MEDIO/BAJO",
+          "content": "Resumen breve"
+        }
+      ]
+    }`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json"
+      }
+    });
+
+    res.json(JSON.parse(response.text || '{"isRelevant": false}'));
+  } catch (error: any) {
+    console.error("Error Analyze:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get("/api/debug-env", (req, res) => {
   const keys = Object.keys(process.env).filter(k => k.includes("KEY") || k.includes("API") || k.includes("GEMINI"));
   
-  const geminiKey = process.env.GEMINI_API_KEY || "";
-  const nextPublicGeminiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
+  const keysToTry = [
+    'GEMINI_API_KEY',
+    'API_KEY',
+    'GOOGLE_API_KEY',
+    'NEXT_PUBLIC_GEMINI_API_KEY'
+  ];
+
+  let found = false;
+  let status = "missing";
+  let length = 0;
+
+  for (const k of keysToTry) {
+    const val = process.env[k];
+    if (val && val !== "MY_GEMINI_API_KEY" && val.trim() !== "" && val.length >= 10) {
+      found = true;
+      status = "configured";
+      length = val.length;
+      break;
+    } else if (val === "MY_GEMINI_API_KEY") {
+      status = "placeholder";
+    }
+  }
   
   res.json({ 
     detected_keys: keys,
     node_env: process.env.NODE_ENV,
-    gemini_key_status: geminiKey === "MY_GEMINI_API_KEY" ? "placeholder" : (geminiKey.length > 0 ? "configured" : "missing"),
-    next_public_key_status: nextPublicGeminiKey === "MY_GEMINI_API_KEY" ? "placeholder" : (nextPublicGeminiKey.length > 0 ? "configured" : "missing"),
-    gemini_key_length: geminiKey.length,
-    next_public_key_length: nextPublicGeminiKey.length
+    gemini_key_status: status,
+    gemini_key_length: length,
+    is_ok: found
   });
 });
 
