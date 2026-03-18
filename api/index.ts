@@ -90,16 +90,29 @@ const app = express();
 app.use(express.json());
 
 function getAI() {
-  // Try all common environment variable names for the API key
-  const apiKey = process.env.GEMINI_API_KEY || 
-                 process.env.API_KEY || 
-                 process.env.GOOGLE_API_KEY || 
-                 process.env.NEXT_PUBLIC_GEMINI_API_KEY || 
-                 "";
-  
-  if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
-    console.error(">>> ERROR: No se encontró una API Key válida en el entorno.");
-    throw new Error("API Key no configurada. Verifica tus Secrets en AI Studio.");
+  const keysToTry = [
+    'GEMINI_API_KEY',
+    'API_KEY',
+    'GOOGLE_API_KEY',
+    'NEXT_PUBLIC_GEMINI_API_KEY'
+  ];
+
+  let apiKey = "";
+  let foundKeyName = "";
+
+  for (const keyName of keysToTry) {
+    const val = process.env[keyName];
+    if (val && val !== "MY_GEMINI_API_KEY" && val.trim() !== "" && val.length >= 10) {
+      apiKey = val.trim().replace(/^["']|["']$/g, "");
+      foundKeyName = keyName;
+      break;
+    }
+  }
+
+  if (!apiKey) {
+    const detected = Object.keys(process.env).filter(k => k.includes("KEY") || k.includes("API") || k.includes("GEMINI"));
+    console.error(">>> ERROR: No se encontró API Key válida. Detectadas:", detected);
+    throw new Error("API_KEY_NOT_FOUND: No se encontró una llave de Gemini válida en los Secrets de AI Studio.");
   }
 
   return new GoogleGenAI({ apiKey });
@@ -140,21 +153,24 @@ app.post("/api/analyze-news", async (req, res) => {
   
   try {
     const ai = getAI();
-    const prompt = `Analiza esta noticia de El Salvador y extrae personas acusadas/procesadas.
-    Noticia: ${text}
+    const prompt = `Analiza esta noticia judicial de El Salvador y extrae personas acusadas o procesadas.
+    
+    NOTICIA:
+    ${text}
+    
     URL: ${url}
     
-    Responde ÚNICAMENTE en este formato JSON:
+    Responde estrictamente con un objeto JSON con este formato:
     {
-      "isRelevant": true/false,
+      "isRelevant": true,
       "date": "YYYY-MM-DD",
       "findings": [
         {
-          "subject": "NOMBRE COMPLETO",
+          "subject": "NOMBRE",
           "crime": "DELITO",
-          "department": "DEPARTAMENTO",
+          "department": "DEPTO",
           "risk": "ALTO/MEDIO/BAJO",
-          "content": "Resumen breve"
+          "content": "Resumen"
         }
       ]
     }`;
@@ -163,11 +179,34 @@ app.post("/api/analyze-news", async (req, res) => {
       model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
-        responseMimeType: "application/json"
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            isRelevant: { type: Type.BOOLEAN },
+            date: { type: Type.STRING },
+            findings: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  subject: { type: Type.STRING },
+                  crime: { type: Type.STRING },
+                  department: { type: Type.STRING },
+                  risk: { type: Type.STRING },
+                  content: { type: Type.STRING }
+                },
+                required: ["subject", "crime", "department", "risk", "content"]
+              }
+            }
+          },
+          required: ["isRelevant", "findings"]
+        }
       }
     });
 
-    res.json(JSON.parse(response.text || '{"isRelevant": false}'));
+    const resultText = response.text || "{}";
+    res.json(JSON.parse(resultText));
   } catch (error: any) {
     console.error("Error Analyze:", error.message);
     res.status(500).json({ error: error.message });
